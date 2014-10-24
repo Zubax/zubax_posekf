@@ -1,0 +1,14 @@
+# Generated/temp
+*.o
+*.d
+lib*.so
+lib*.so.*
+*.a
+build
+.dep
+__pycache__
+*.pyc
+*~
+
+# IDE
+.idea

@@ -1,0 +1,195 @@
+/*
+ * Copyright (c) 2014 Zubax, zubax.com
+ * Please refer to the file LICENSE for terms and conditions.
+ * Author: Pavel Kirienko <pavel.kirienko@zubax.com>
+ */
+
+#pragma once
+
+#include <ros/ros.h>
+#include <ros/console.h>
+#include <eigen3/Eigen/Eigen>
+#include <cmath>
+
+namespace zubax_posekf
+{
+    inline Eigen::Quaterniond quaternionFromEuler(const Eigen::Vector3d& roll_pitch_yaw)
+    {
+        const double ai = roll_pitch_yaw[0];
+        const double aj = roll_pitch_yaw[1];
+        const double ak = roll_pitch_yaw[2];
+
+        const double ci = std::cos(ai / 2.0);
+        const double si = std::sin(ai / 2.0);
+        const double cj = std::cos(aj / 2.0);
+        const double sj = std::sin(aj / 2.0);
+        const double ck = std::cos(ak / 2.0);
+        const double sk = std::sin(ak / 2.0);
+
+        const double cc = ci * ck;
+        const double cs = ci * sk;
+        const double sc = si * ck;
+        const double ss = si * sk;
+
+        return Eigen::Quaterniond(
+            cj * cc + sj * ss,   // w
+            cj * sc - sj * cs,   // x
+            cj * ss + sj * cc,   // y
+            cj * cs - sj * sc);  // z
+    }
+
+    class IMUFilter
+    {
+        /*
+         * State vector:
+         *  q - earth to body quaternion (w x y z)
+         *  w - true angular velocity in body frame
+         *  bw - gyro bias in body frame
+         */
+        Eigen::Matrix<double, 10, 1> x_;
+        Eigen::Matrix<double, 10, 10> P_;
+        Eigen::Matrix<double, 10, 10> Q_;
+
+        double state_timestamp_ = 0.0;
+        bool initialized_ = false;
+
+        Eigen::Vector3d accel_;       ///< This is not included in the state vector
+        Eigen::Matrix3d accel_cov_;   ///< Ditto
+
+        Eigen::Quaterniond getQuat() const  { return Eigen::Quaterniond(x_(0, 0), x_(1, 0), x_(2, 0), x_(3, 0)); }
+        Eigen::Vector3d getAngVel() const   { return Eigen::Vector3d(x_(4, 0), x_(5, 0), x_(6, 0)); }
+        Eigen::Vector3d getGyroBias() const { return Eigen::Vector3d(x_(7, 0), x_(8, 0), x_(9, 0)); }
+
+        void normalizeAndCheck()
+        {
+            const auto q = getQuat().normalized();
+            x_(0, 0) = q.w();
+            x_(1, 0) = q.x();
+            x_(2, 0) = q.y();
+            x_(3, 0) = q.z();
+
+            ROS_ASSERT(std::isfinite(x_.sum()));
+
+            ROS_ASSERT(std::isfinite(P_.sum()));
+            ROS_ASSERT(P_.sum() > 0.0);
+
+            ROS_ASSERT(std::isfinite(Q_.sum()));
+            ROS_ASSERT(Q_.sum() > 0.0);
+
+            ROS_ASSERT(std::isfinite(state_timestamp_) && (state_timestamp_ > 0.0));
+        }
+
+        void performTimeUpdate(double timestamp)
+        {
+            ROS_ASSERT(initialized_);
+
+            /*
+             * Compute and check dt
+             */
+            const double dt = timestamp - state_timestamp_;
+            if (dt <= 0)
+            {
+                ROS_WARN("Time update: nonpositive dt [%f]", dt);
+                return;
+            }
+            state_timestamp_ = timestamp;
+
+            /*
+             * Predict state
+             */
+            const auto delta_quat = quaternionFromEuler(getAngVel() * dt);
+            const auto new_q = (getQuat() * delta_quat).normalized();
+            // TODO: check the angular difference (test application)
+
+            x_(0, 0) = new_q.w();
+            x_(1, 0) = new_q.x();
+            x_(2, 0) = new_q.y();
+            x_(3, 0) = new_q.z();
+
+            /*
+             * Predict covariance
+             */
+            // TODO
+
+            normalizeAndCheck();
+        }
+
+    public:
+        IMUFilter()
+        {
+            x_.setZero();
+            P_.setZero();
+
+            // TODO: runtime Q estimation
+            Eigen::Matrix<double, decltype(Q_)::RowsAtCompileTime, 1> Q_diag;
+            Q_diag.setZero();
+            Q_diag <<
+                0.0, 0.1, 0.1, 0.1,
+                0.1, 0.1, 0.1,
+                0.1, 0.1, 0.1;
+            Q_ = Q_diag.asDiagonal();
+
+            accel_.setZero();
+        }
+
+        bool isInitialized() const { return initialized_; }
+
+        void initialize(Eigen::Quaterniond quat)
+        {
+            ROS_ASSERT(!initialized_);
+            initialized_ = true;
+
+            x_.setZero();
+            quat.normalize();
+            x_(0, 0) = quat.w();
+            x_(1, 0) = quat.x();
+            x_(2, 0) = quat.y();
+            x_(3, 0) = quat.z();
+
+            P_.setIdentity(); // TODO: Proper initialization
+        }
+
+        void performAccelUpdate(double timestamp, Eigen::Vector3d accel, const Eigen::Matrix3d& cov)
+        {
+            ROS_ASSERT(initialized_);
+
+            (void)timestamp;
+            accel_ = accel;
+            accel_cov_ = cov;
+            accel.normalize();
+
+            normalizeAndCheck();
+        }
+
+        void performGyroUpdate(double timestamp, Eigen::Vector3d angvel, const Eigen::Matrix3d& cov)
+        {
+            ROS_ASSERT(initialized_);
+
+            (void)timestamp;
+            (void)angvel;
+
+            normalizeAndCheck();
+        }
+
+        double getTimestamp() const { return state_timestamp_; }
+
+        void getOutputAttitude(Eigen::Quaterniond& out_quat, Eigen::Matrix3d& out_cov) const
+        {
+        }
+
+        void getOutputAngularVelocity(Eigen::Vector3d& out_vector, Eigen::Matrix3d& out_cov) const
+        {
+        }
+
+        void getOutputAcceleration(Eigen::Vector3d& out_vector, Eigen::Matrix3d& out_cov) const
+        {
+        }
+
+        /**
+         * Debug accessors
+         */
+        decltype(x_) getX() const { return x_; }
+        decltype(P_) getP() const { return P_; }
+        decltype(Q_) getQ() const { return Q_; }
+    };
+}

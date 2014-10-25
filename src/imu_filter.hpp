@@ -10,6 +10,7 @@
 #include <ros/console.h>
 #include <eigen3/Eigen/Eigen>
 #include <cmath>
+#include "mathematica.hpp"
 
 namespace zubax_posekf
 {
@@ -90,6 +91,35 @@ class IMUFilter
         ROS_ASSERT(std::isfinite(state_timestamp_) && (state_timestamp_ > 0.0));
     }
 
+    Eigen::Matrix<double, 10, 10> computeStateTransitionJacobian(const double dtf) const
+    {
+        const double qw = x_(0, 0);
+        const double qx = x_(1, 0);
+        const double qy = x_(2, 0);
+        const double qz = x_(3, 0);
+
+        const double wlx = x_(4, 0);
+        const double wly = x_(5, 0);
+        const double wlz = x_(6, 0);
+
+        using namespace mathematica;
+        return List(
+            List(1, -(dtf * wlx) / 2., -(dtf * wly) / 2., -(dtf * wlz) / 2., -(dtf * qx) / 2., -(dtf * qy) / 2.,
+                 -(dtf * qz) / 2., 0, 0, 0),
+            List((dtf * wlx) / 2., 1, (dtf * wlz) / 2., -(dtf * wly) / 2., (dtf * qw) / 2., -(dtf * qz) / 2.,
+                 (dtf * qy) / 2., 0, 0, 0),
+            List((dtf * wly) / 2., -(dtf * wlz) / 2., 1, (dtf * wlx) / 2., (dtf * qz) / 2., (dtf * qw) / 2.,
+                 -(dtf * qx) / 2., 0, 0, 0),
+            List((dtf * wlz) / 2., (dtf * wly) / 2., -(dtf * wlx) / 2., 1, -(dtf * qy) / 2., (dtf * qx) / 2.,
+                 (dtf * qw) / 2., 0, 0, 0),
+            List(0, 0, 0, 0, 1, 0, 0, 0, 0, 0),
+            List(0, 0, 0, 0, 0, 1, 0, 0, 0, 0),
+            List(0, 0, 0, 0, 0, 0, 1, 0, 0, 0),
+            List(0, 0, 0, 0, 0, 0, 0, 1, 0, 0),
+            List(0, 0, 0, 0, 0, 0, 0, 0, 1, 0),
+            List(0, 0, 0, 0, 0, 0, 0, 0, 0, 1));
+    }
+
 public:
     IMUFilter()
     {
@@ -162,7 +192,8 @@ public:
         /*
          * Predict covariance
          */
-        // TODO
+        const auto F = computeStateTransitionJacobian(dt);
+        P_ = F * P_ * F.transpose() + Q_;
 
         normalizeAndCheck();
     }
@@ -196,6 +227,9 @@ public:
 
     std::pair<Eigen::Quaterniond, Eigen::Matrix3d> getOutputOrientation() const
     {
+        /*
+         * TODO: Proper covariance conversion (ref. S. Weiss)
+         */
         return { getQuat(), P_.block<3, 3>(1, 1) };
     }
 

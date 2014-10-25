@@ -120,6 +120,27 @@ class IMUFilter
             List(0, 0, 0, 0, 0, 0, 0, 0, 0, 1));
     }
 
+    Eigen::Matrix<double, 3, 10> computeAccelerometerMeasurementJacobian() const
+    {
+        const double qw = x_(0, 0);
+        const double qx = x_(1, 0);
+        const double qy = x_(2, 0);
+        const double qz = x_(3, 0);
+
+        using namespace mathematica;
+        return List(List(2 * qy, 2 * qz, 2 * qw, 2 * qx, 0, 0, 0, 0, 0, 0),
+                    List(-2 * qx, -2 * qw, 2 * qz, 2 * qy, 0, 0, 0, 0, 0, 0),
+                    List(2 * qw, -2 * qx, -2 * qy, 2 * qz, 0, 0, 0, 0, 0, 0));
+    }
+
+    Eigen::Matrix<double, 3, 10> computeGyroMeasurementJacobian() const
+    {
+        using namespace mathematica;
+        return List(List(0, 0, 0, 0, 1, 0, 0, 1, 0, 0),
+                    List(0, 0, 0, 0, 0, 1, 0, 0, 1, 0),
+                    List(0, 0, 0, 0, 0, 0, 1, 0, 0, 1));
+    }
+
 public:
     IMUFilter()
     {

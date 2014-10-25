@@ -63,7 +63,7 @@ bodyAngVel = {wlx,wly,wlz};
 bodyGyroBias = {bwlx, bwly, bwlz};
 
 (* Time update *)
-(* TODO: use the approach proposed in "GPS aided INS solution for OpenPilot *)"
+(* TODO: use the approach proposed in "GPS aided INS solution for OpenPilot" *)
 newq = q ** simplifiedDeltaQuaternionFromAngularRate[bodyAngVel, dtf];
 f = {
  {newq[[1]]},
@@ -97,12 +97,4 @@ Hgyro = jacobian[hgyro,x];
 
 Print["hgyro=", hgyro//MatrixForm]
 Print["Hgyro=", Hgyro//MatrixForm]
-
-
-
-
-
-
-
-
 

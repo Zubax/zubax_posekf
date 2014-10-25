@@ -18,6 +18,7 @@ namespace zubax_posekf
 
         void cbImu(const sensor_msgs::Imu& msg)
         {
+            (void)msg;
         }
 
     public:

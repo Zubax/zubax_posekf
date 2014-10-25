@@ -90,14 +90,18 @@ catkin_package(
 ## Build ##
 ###########
 
-set(CMAKE_CXX_FLAGS "-std=c++11")
+## Configuring the compiler options. Assumes GCC 4.8+, should also work with Clang.
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -Werror -pedantic")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmissing-declarations -Wcast-align -Wzero-as-null-pointer-constant")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wfloat-equal -Wconversion -Wsign-conversion")
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include)
-include_directories(
-    ${catkin_INCLUDE_DIRS}
-)
+
+# SYSTEM would cause the compiler to suppress warnings
+# http://stackoverflow.com/questions/3371127/use-isystem-instead-of-i-with-cmake
+include_directories(SYSTEM ${catkin_INCLUDE_DIRS})
 
 ## Declare a cpp executable
 add_executable(posekf

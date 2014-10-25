@@ -89,7 +89,7 @@ namespace zubax_posekf
             const double dt = timestamp - state_timestamp_;
             if (dt <= 0)
             {
-                ROS_WARN("Time update: nonpositive dt [%f]", dt);
+                ROS_WARN("Time update: Nonpositive dt [%f]", dt);
                 return;
             }
             state_timestamp_ = timestamp;
@@ -167,6 +167,7 @@ namespace zubax_posekf
 
             (void)timestamp;
             (void)angvel;
+            (void)cov;
 
             normalizeAndCheck();
         }
@@ -175,14 +176,20 @@ namespace zubax_posekf
 
         void getOutputAttitude(Eigen::Quaterniond& out_quat, Eigen::Matrix3d& out_cov) const
         {
+            (void)out_quat;
+            (void)out_cov;
         }
 
         void getOutputAngularVelocity(Eigen::Vector3d& out_vector, Eigen::Matrix3d& out_cov) const
         {
+            (void)out_vector;
+            (void)out_cov;
         }
 
         void getOutputAcceleration(Eigen::Vector3d& out_vector, Eigen::Matrix3d& out_cov) const
         {
+            (void)out_vector;
+            (void)out_cov;
         }
 
         /**

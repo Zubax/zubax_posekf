@@ -11,7 +11,6 @@
 
 namespace zubax_posekf
 {
-
 /**
  * @param array Row-major flat array
  * @return      Matrix in default representation (column-major)
@@ -35,6 +34,9 @@ inline boost::array<Scalar, Rows * Cols> matrixEigenToMsg(const Eigen::Matrix<Sc
     return array;
 }
 
+/**
+ * ROS adapter for the filter class
+ */
 class IMUFilterWrapper
 {
     IMUFilter filter_;

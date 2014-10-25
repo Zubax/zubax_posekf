@@ -39,6 +39,16 @@ inline Eigen::Quaterniond quaternionFromEuler(const Eigen::Vector3d& roll_pitch_
         cj * cs - sj * sc);  // z
 }
 
+inline Eigen::Vector3d quaternionToEuler(const Eigen::Quaterniond& q)
+{
+    return q.toRotationMatrix().eulerAngles(0, 1, 2);
+}
+
+inline Eigen::Quaterniond computeDeltaQuaternion(const Eigen::Quaterniond& from, const Eigen::Quaterniond& to)
+{
+    return to.normalized() * from.inverse();
+}
+
 class IMUFilter
 {
     /*
@@ -143,7 +153,6 @@ public:
          */
         const auto delta_quat = quaternionFromEuler(getAngVel() * dt);
         const auto new_q = (getQuat() * delta_quat).normalized();
-        // TODO: check the angular difference (test application)
 
         x_(0, 0) = new_q.w();
         x_(1, 0) = new_q.x();

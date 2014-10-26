@@ -118,6 +118,7 @@ class IMUFilterWrapper
             return;
         }
 
+        filter_.performTimeUpdate(timestamp);
         filter_.performAccelUpdate(timestamp, accel, accel_cov);
         filter_.performGyroUpdate(timestamp, angvel, angvel_cov);
 

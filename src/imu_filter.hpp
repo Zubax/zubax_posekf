@@ -83,6 +83,8 @@ class IMUFilter
         x_(2, 0) = q.y();
         x_(3, 0) = q.z();
 
+        P_ = 0.5 * (P_ + P_.transpose());  // Make sure P stays symmetric
+
         debug_pub_.publish("x", x_);
         debug_pub_.publish("P", P_);
         debug_pub_.publish("Q", Q_);
@@ -90,6 +92,15 @@ class IMUFilter
         ROS_ASSERT(std::isfinite(x_.sum()));
         ROS_ASSERT(std::isfinite(P_.sum()));
         ROS_ASSERT(std::isfinite(Q_.sum()));
+
+        for (int i = 0; i < P_.rows(); i++)
+        {
+            if (P_(i, i) <= 0.0)
+            {
+                ROS_FATAL_STREAM("Invalid P:\n" << P_ << "\nx:" << x_);
+                ROS_ISSUE_BREAK();
+            }
+        }
 
         ROS_ASSERT(std::isfinite(state_timestamp_) && (state_timestamp_ > 0.0));
     }

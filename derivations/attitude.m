@@ -6,8 +6,8 @@ ClearAll["Global`*"];
 (* Functions *)
 jacobian[ff_, dd_]:=D[Flatten[ff], {Flatten[dd]}]
 
-rotateVectorByQuaternion[{x_, y_, z_}, q_] :=
-  Drop[List @@ (q ** Quaternion[0, x, y, z] ** Conjugate[q]), 1]
+rotateVectorByQuaternion[{{x_}, {y_}, {z_}}, q_] :=
+  {Drop[List @@ (q ** Quaternion[0, x, y, z] ** Conjugate[q]), 1]}\[Transpose]
 
 quaternionFromEuler[ai_, aj_, ak_] := With[{
     ci = Cos[ai/2],
@@ -33,10 +33,10 @@ quaternionFromEuler[ai_, aj_, ak_] := With[{
  *)
 simplifiedQuaternionFromEuler[ai_, aj_, ak_] := Quaternion[1, ai/2, aj/2, ak/2]
 
-simplifiedDeltaQuaternionFromAngularRate[{wx_,wy_,wz_},dt_] :=
+simplifiedDeltaQuaternionFromAngularRate[{{wx_},{wy_},{wz_}},dt_] :=
   simplifiedQuaternionFromEuler[wx dt, wy dt, wz dt]
 
-deltaQuaternionFromAngularRate[{wx_,wy_,wz_},dt_] := quaternionFromEuler[wx dt, wy dt, wz dt]
+deltaQuaternionFromAngularRate[{{wx_},{wy_},{wz_}},dt_] := quaternionFromEuler[wx dt, wy dt, wz dt]
 
 
 
@@ -58,9 +58,9 @@ x = {
 q = Quaternion[qw, qx, qy, qz];
 qr = Conjugate[q];
 
-bodyAngVel = {wlx,wly,wlz};
+bodyAngVel = {{wlx},{wly},{wlz}};
 
-bodyGyroBias = {bwlx, bwly, bwlz};
+bodyGyroBias = {{bwlx}, {bwly}, {bwlz}};
 
 (* Time update *)
 (* TODO: use the approach proposed in "GPS aided INS solution for OpenPilot" *)
@@ -97,4 +97,7 @@ Hgyro = jacobian[hgyro,x];
 
 Print["hgyro=", hgyro//MatrixForm]
 Print["Hgyro=", Hgyro//MatrixForm]
+
+
+
 

@@ -9,6 +9,7 @@ build
 __pycache__
 *.pyc
 *~
+*.bag
 
 # IDE
 .idea

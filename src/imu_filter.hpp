@@ -11,6 +11,7 @@
 #include <eigen3/Eigen/Eigen>
 #include <cmath>
 #include "mathematica.hpp"
+#include "debug_publisher.hpp"
 
 namespace zubax_posekf
 {
@@ -52,6 +53,8 @@ inline Eigen::Quaterniond computeDeltaQuaternion(const Eigen::Quaterniond& from,
 
 class IMUFilter
 {
+    DebugPublisher debug_pub_;
+
     /*
      * State vector:
      *  q - earth to body quaternion (w x y z)
@@ -80,13 +83,13 @@ class IMUFilter
         x_(2, 0) = q.y();
         x_(3, 0) = q.z();
 
+        debug_pub_.publish("x", x_);
+        debug_pub_.publish("P", P_);
+        debug_pub_.publish("Q", Q_);
+
         ROS_ASSERT(std::isfinite(x_.sum()));
-
         ROS_ASSERT(std::isfinite(P_.sum()));
-        ROS_ASSERT(P_.sum() > 0.0);
-
         ROS_ASSERT(std::isfinite(Q_.sum()));
-        ROS_ASSERT(Q_.sum() > 0.0);
 
         ROS_ASSERT(std::isfinite(state_timestamp_) && (state_timestamp_ > 0.0));
     }
@@ -120,7 +123,7 @@ class IMUFilter
             List(0, 0, 0, 0, 0, 0, 0, 0, 0, 1));
     }
 
-    Eigen::Matrix<double, 3, 10> computeAccelerometerMeasurementJacobian() const
+    Eigen::Matrix<double, 3, 10> computeAccelMeasurementJacobian() const
     {
         const double qw = x_(0, 0);
         const double qx = x_(1, 0);
@@ -139,6 +142,35 @@ class IMUFilter
         return List(List(0, 0, 0, 0, 1, 0, 0, 1, 0, 0),
                     List(0, 0, 0, 0, 0, 1, 0, 0, 1, 0),
                     List(0, 0, 0, 0, 0, 0, 1, 0, 0, 1));
+    }
+
+    Eigen::Vector3d predictAccelMeasurement() const
+    {
+        const double qw = x_(0, 0);
+        const double qx = x_(1, 0);
+        const double qy = x_(2, 0);
+        const double qz = x_(3, 0);
+
+        using namespace mathematica;
+        return List(List(2 * qw * qy + 2 * qx * qz),
+                    List(-2 * qw * qx + 2 * qy * qz),
+                    List(Power(qw, 2) - Power(qx, 2) - Power(qy, 2) + Power(qz, 2)));
+    }
+
+    Eigen::Vector3d predictGyroMeasurement() const
+    {
+        const double wlx = x_(4, 0);
+        const double wly = x_(5, 0);
+        const double wlz = x_(6, 0);
+
+        const double bwlx = x_(7, 0);
+        const double bwly = x_(8, 0);
+        const double bwlz = x_(9, 0);
+
+        using namespace mathematica;
+        return List(List(bwlx + wlx),
+                    List(bwly + wly),
+                    List(bwlz + wlz));
     }
 
 public:
@@ -191,10 +223,11 @@ public:
         /*
          * Compute and check dt
          */
-        const double dt = timestamp - state_timestamp_;
-        if (dt <= 0)
+        const double dtf = timestamp - state_timestamp_;
+        debug_pub_.publish("dtf", dtf);
+        if (dtf <= 0)
         {
-            ROS_WARN("Time update: Nonpositive dt [%f]", dt);
+            ROS_WARN("Time update: Nonpositive dt [%f]", dtf);
             return;
         }
         state_timestamp_ = timestamp;
@@ -202,7 +235,7 @@ public:
         /*
          * Predict state
          */
-        const auto delta_quat = quaternionFromEuler(getAngVel() * dt);
+        const auto delta_quat = quaternionFromEuler(getAngVel() * dtf);
         const auto new_q = (getQuat() * delta_quat).normalized();
 
         x_(0, 0) = new_q.w();
@@ -213,21 +246,35 @@ public:
         /*
          * Predict covariance
          */
-        const auto F = computeStateTransitionJacobian(dt);
+        const auto F = computeStateTransitionJacobian(dtf);
         P_ = F * P_ * F.transpose() + Q_;
 
         normalizeAndCheck();
     }
 
-    void performAccelUpdate(double timestamp, Eigen::Vector3d accel, const Eigen::Matrix3d& cov)
+    void performAccelUpdate(double timestamp, const Eigen::Vector3d& accel, const Eigen::Matrix3d& cov)
     {
         ROS_ASSERT(initialized_);
         ROS_ASSERT(timestamp > 0);
-        (void)timestamp;
+
+        state_timestamp_ = timestamp;
 
         accel_ = accel;
         accel_cov_ = cov;
-        accel.normalize();
+
+        const auto y = accel.normalized() - predictAccelMeasurement();
+
+        const auto H = computeAccelMeasurementJacobian();
+
+        const auto S = H * P_ * H.transpose() + cov;
+
+        const auto K = P_ * H.transpose() * S.inverse();
+
+        x_ = x_ + K * y;
+
+        P_ = (decltype(P_)::Identity() - K * H) * P_;
+
+        debug_pub_.publish("K_accel", K);
 
         normalizeAndCheck();
     }
@@ -236,10 +283,22 @@ public:
     {
         ROS_ASSERT(initialized_);
         ROS_ASSERT(timestamp > 0);
-        (void)timestamp;
 
-        (void)angvel;
-        (void)cov;
+        state_timestamp_ = timestamp;
+
+        const auto y = angvel - predictGyroMeasurement();
+
+        const auto H = computeGyroMeasurementJacobian();
+
+        const auto S = H * P_ * H.transpose() + cov;
+
+        const auto K = P_ * H.transpose() * S.inverse();
+
+        x_ = x_ + K * y;
+
+        P_ = (decltype(P_)::Identity() - K * H) * P_;    // TODO: Proper covariance propagation
+
+        debug_pub_.publish("K_gyro", K);
 
         normalizeAndCheck();
     }
@@ -263,13 +322,6 @@ public:
     {
         return { accel_, accel_cov_ };
     }
-
-    /**
-     * Debug accessors
-     */
-    decltype(x_) getX() const { return x_; }
-    decltype(P_) getP() const { return P_; }
-    decltype(Q_) getQ() const { return Q_; }
 };
 
 }

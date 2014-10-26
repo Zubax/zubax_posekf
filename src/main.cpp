@@ -7,6 +7,8 @@
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
 #include <eigen_conversions/eigen_msg.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include "imu_filter.hpp"
 
 namespace zubax_posekf
@@ -42,11 +44,12 @@ class IMUFilterWrapper
     IMUFilter filter_;
     ros::Subscriber sub_imu_;
     mutable ros::Publisher pub_imu_;
+    mutable tf2_ros::TransformBroadcaster pub_tf_;
 
-    void publish(const std::string& frame_id) const
+    void publishEstimations() const
     {
         sensor_msgs::Imu msg;
-        msg.header.frame_id = frame_id;
+        msg.header.frame_id = "zubax_posekf_out";
         msg.header.stamp.fromSec(filter_.getTimestamp());
 
         {
@@ -66,11 +69,31 @@ class IMUFilterWrapper
         }
 
         pub_imu_.publish(msg);
+
+        /*
+         * Publishing the second IMU transform
+         */
+        geometry_msgs::TransformStamped tf;
+        tf.header.frame_id = "map";
+        tf.header.stamp = msg.header.stamp;
+        tf.child_frame_id = msg.header.frame_id;
+        tf.transform.rotation = msg.orientation;
+        pub_tf_.sendTransform(tf);
     }
 
     void cbImu(const sensor_msgs::Imu& msg)
     {
         const double timestamp = msg.header.stamp.toSec();
+
+        /*
+         * Publishing the original IMU transform
+         */
+        geometry_msgs::TransformStamped tf;
+        tf.header.frame_id = "map";
+        tf.header.stamp = msg.header.stamp;
+        tf.child_frame_id = "zubax_posekf_in";
+        tf.transform.rotation = msg.orientation;
+        pub_tf_.sendTransform(tf);
 
         /*
          * Msg --> Eigen conversion
@@ -98,7 +121,7 @@ class IMUFilterWrapper
         filter_.performAccelUpdate(timestamp, accel, accel_cov);
         filter_.performGyroUpdate(timestamp, angvel, angvel_cov);
 
-        publish(msg.header.frame_id);
+        publishEstimations();
     }
 
 public:

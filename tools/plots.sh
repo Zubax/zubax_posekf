@@ -6,6 +6,7 @@ SECOND="$2"
 if [[ -z "$1" ]] || [[ -z "$2" ]]
 then
     echo "$0 <first-imu-topic> <second-imu-topic>"
+    exit 1
 fi
 
 rqt_plot $FIRST/orientation/x:y:z:w       $SECOND/orientation/x:y:z:w       &

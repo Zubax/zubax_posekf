@@ -65,6 +65,8 @@ class IMUFilter
     Eigen::Matrix<double, 10, 10> P_;
     Eigen::Matrix<double, 10, 10> Q_;
 
+    const double AccelCovMult = 1000.0;
+
     double state_timestamp_ = 0.0;
     bool initialized_ = false;
 
@@ -277,7 +279,7 @@ public:
 
         const Eigen::Matrix<double, 3, 10> H = computeAccelMeasurementJacobian();
 
-        const Eigen::Matrix3d S = H * P_ * H.transpose() + cov;
+        const Eigen::Matrix3d S = H * P_ * H.transpose() + cov * AccelCovMult;
 
         const auto K = static_cast<Eigen::Matrix<double, 10, 3> >(P_ * H.transpose() * S.inverse());
 
@@ -307,7 +309,7 @@ public:
 
         x_ = x_ + K * y;
 
-        P_ = (decltype(P_)::Identity() - K * H) * P_;    // TODO: Proper covariance propagation
+        P_ = (decltype(P_)::Identity() - K * H) * P_;
 
         debug_pub_.publish("K_gyro", K);
 

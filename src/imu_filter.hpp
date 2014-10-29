@@ -97,7 +97,7 @@ class IMUFilter
         {
             if (P_(i, i) <= 0.0)
             {
-                ROS_FATAL_STREAM("Invalid P:\n" << P_ << "\nx:" << x_);
+                ROS_FATAL_STREAM("Invalid P:\n" << P_ << "\nx:\n" << x_);
                 ROS_ISSUE_BREAK();
             }
         }

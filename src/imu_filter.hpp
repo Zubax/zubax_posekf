@@ -204,14 +204,16 @@ class IMUFilter
 
         state_timestamp_ = timestamp;
 
-        const Matrix<NumStates, NumStates> S = H * P_ * H.transpose() + R;
+        const Matrix<NumStates, NumStates> R_sym = 0.5 * (R + R.transpose());  // Ensure that R is symmetric
+
+        const Matrix<NumStates, NumStates> S = H * P_ * H.transpose() + R_sym;
 
         const auto K = static_cast<Matrix<10, NumStates> >(P_ * H.transpose() * S.inverse());
 
         x_ = x_ + K * y;
 
         const Matrix<10, 10> IKH = decltype(P_)::Identity() - K * H;
-        P_ = IKH * P_ * IKH.transpose() + K * R * K.transpose();
+        P_ = IKH * P_ * IKH.transpose() + K * R_sym * K.transpose();
 
         normalizeAndCheck();
     }

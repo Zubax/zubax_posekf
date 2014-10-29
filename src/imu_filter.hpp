@@ -282,17 +282,20 @@ public:
         accel_ = accel;
         accel_cov_ = cov;
 
+        const Matrix3 R = cov * AccelCovMult;
+
         const Vector3 y = accel.normalized() - predictAccelMeasurement();
 
         const Matrix<3, 10> H = computeAccelMeasurementJacobian();
 
-        const Matrix3 S = H * P_ * H.transpose() + cov * AccelCovMult;
+        const Matrix3 S = H * P_ * H.transpose() + R;
 
         const auto K = static_cast<Matrix<10, 3> >(P_ * H.transpose() * S.inverse());
 
         x_ = x_ + K * y;
 
-        P_ = (decltype(P_)::Identity() - K * H) * P_;
+        const Matrix<10, 10> IKH = decltype(P_)::Identity() - K * H;
+        P_ = IKH * P_ * IKH.transpose() + K * R * K.transpose();
 
         debug_pub_.publish("K_accel", K);
 
@@ -306,17 +309,20 @@ public:
 
         state_timestamp_ = timestamp;
 
+        const Matrix3 R = cov;
+
         const Vector3 y = angvel - predictGyroMeasurement();
 
         const Matrix<3, 10> H = computeGyroMeasurementJacobian();
 
-        const Matrix3 S = H * P_ * H.transpose() + cov;
+        const Matrix3 S = H * P_ * H.transpose() + R;
 
         const auto K = static_cast<Matrix<10, 3> >(P_ * H.transpose() * S.inverse());
 
         x_ = x_ + K * y;
 
-        P_ = (decltype(P_)::Identity() - K * H) * P_;
+        const Matrix<10, 10> IKH = decltype(P_)::Identity() - K * H;
+        P_ = IKH * P_ * IKH.transpose() + K * R * K.transpose();
 
         debug_pub_.publish("K_gyro", K);
 

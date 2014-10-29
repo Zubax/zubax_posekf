@@ -16,37 +16,44 @@
 namespace zubax_posekf
 {
 
-inline Eigen::Quaterniond quaternionFromEuler(const Eigen::Vector3d& roll_pitch_yaw)
+using Scalar = double;
+using Quaternion = Eigen::Quaternion<Scalar>;
+template <int Rows, int Cols> using Matrix = Eigen::Matrix<Scalar, Rows, Cols>;
+template <int Size> using Vector = Matrix<Size, 1>;
+using Vector3 = Vector<3>;
+using Matrix3 = Matrix<3, 3>;
+
+inline Quaternion quaternionFromEuler(const Vector3& roll_pitch_yaw)
 {
-    const double ai = roll_pitch_yaw[0];
-    const double aj = roll_pitch_yaw[1];
-    const double ak = roll_pitch_yaw[2];
+    const Scalar ai = roll_pitch_yaw[0];
+    const Scalar aj = roll_pitch_yaw[1];
+    const Scalar ak = roll_pitch_yaw[2];
 
-    const double ci = std::cos(ai / 2.0);
-    const double si = std::sin(ai / 2.0);
-    const double cj = std::cos(aj / 2.0);
-    const double sj = std::sin(aj / 2.0);
-    const double ck = std::cos(ak / 2.0);
-    const double sk = std::sin(ak / 2.0);
+    const Scalar ci = std::cos(ai / 2.0);
+    const Scalar si = std::sin(ai / 2.0);
+    const Scalar cj = std::cos(aj / 2.0);
+    const Scalar sj = std::sin(aj / 2.0);
+    const Scalar ck = std::cos(ak / 2.0);
+    const Scalar sk = std::sin(ak / 2.0);
 
-    const double cc = ci * ck;
-    const double cs = ci * sk;
-    const double sc = si * ck;
-    const double ss = si * sk;
+    const Scalar cc = ci * ck;
+    const Scalar cs = ci * sk;
+    const Scalar sc = si * ck;
+    const Scalar ss = si * sk;
 
-    return Eigen::Quaterniond(
+    return Quaternion(
         cj * cc + sj * ss,   // w
         cj * sc - sj * cs,   // x
         cj * ss + sj * cc,   // y
         cj * cs - sj * sc);  // z
 }
 
-inline Eigen::Vector3d quaternionToEuler(const Eigen::Quaterniond& q)
+inline Vector3 quaternionToEuler(const Quaternion& q)
 {
     return q.toRotationMatrix().eulerAngles(0, 1, 2);
 }
 
-inline Eigen::Quaterniond computeDeltaQuaternion(const Eigen::Quaterniond& from, const Eigen::Quaterniond& to)
+inline Quaternion computeDeltaQuaternion(const Quaternion& from, const Quaternion& to)
 {
     return to.normalized() * from.inverse();
 }
@@ -61,21 +68,21 @@ class IMUFilter
      *  w - true angular velocity in body frame
      *  bw - gyro bias in body frame
      */
-    Eigen::Matrix<double, 10, 1> x_;
-    Eigen::Matrix<double, 10, 10> P_;
-    Eigen::Matrix<double, 10, 10> Q_;
+    Vector<10> x_;
+    Matrix<10, 10> P_;
+    Matrix<10, 10> Q_;
 
-    const double AccelCovMult = 1000.0;
+    const Scalar AccelCovMult = 1000.0;
 
-    double state_timestamp_ = 0.0;
+    Scalar state_timestamp_ = 0.0;
     bool initialized_ = false;
 
-    Eigen::Vector3d accel_;       ///< This is not included in the state vector
-    Eigen::Matrix3d accel_cov_;   ///< Ditto
+    Vector3 accel_;       ///< This is not included in the state vector
+    Matrix3 accel_cov_;   ///< Ditto
 
-    Eigen::Quaterniond getQuat() const  { return Eigen::Quaterniond(x_(0, 0), x_(1, 0), x_(2, 0), x_(3, 0)); }
-    Eigen::Vector3d getAngVel() const   { return Eigen::Vector3d(x_(4, 0), x_(5, 0), x_(6, 0)); }
-    Eigen::Vector3d getGyroBias() const { return Eigen::Vector3d(x_(7, 0), x_(8, 0), x_(9, 0)); }
+    Quaternion getQuat() const  { return Quaternion(x_(0, 0), x_(1, 0), x_(2, 0), x_(3, 0)); }
+    Vector3 getAngVel() const   { return Vector3(x_(4, 0), x_(5, 0), x_(6, 0)); }
+    Vector3 getGyroBias() const { return Vector3(x_(7, 0), x_(8, 0), x_(9, 0)); }
 
     void normalizeAndCheck()
     {
@@ -107,16 +114,16 @@ class IMUFilter
         ROS_ASSERT(std::isfinite(state_timestamp_) && (state_timestamp_ > 0.0));
     }
 
-    Eigen::Matrix<double, 10, 10> computeStateTransitionJacobian(const double dtf) const
+    Matrix<10, 10> computeStateTransitionJacobian(const Scalar dtf) const
     {
-        const double qw = x_(0, 0);
-        const double qx = x_(1, 0);
-        const double qy = x_(2, 0);
-        const double qz = x_(3, 0);
+        const Scalar qw = x_(0, 0);
+        const Scalar qx = x_(1, 0);
+        const Scalar qy = x_(2, 0);
+        const Scalar qz = x_(3, 0);
 
-        const double wlx = x_(4, 0);
-        const double wly = x_(5, 0);
-        const double wlz = x_(6, 0);
+        const Scalar wlx = x_(4, 0);
+        const Scalar wly = x_(5, 0);
+        const Scalar wlz = x_(6, 0);
 
         using namespace mathematica;
         return List(
@@ -136,12 +143,12 @@ class IMUFilter
             List(0, 0, 0, 0, 0, 0, 0, 0, 0, 1));
     }
 
-    Eigen::Matrix<double, 3, 10> computeAccelMeasurementJacobian() const
+    Matrix<3, 10> computeAccelMeasurementJacobian() const
     {
-        const double qw = x_(0, 0);
-        const double qx = x_(1, 0);
-        const double qy = x_(2, 0);
-        const double qz = x_(3, 0);
+        const Scalar qw = x_(0, 0);
+        const Scalar qx = x_(1, 0);
+        const Scalar qy = x_(2, 0);
+        const Scalar qz = x_(3, 0);
 
         using namespace mathematica;
         return List(List(2 * qy, 2 * qz, 2 * qw, 2 * qx, 0, 0, 0, 0, 0, 0),
@@ -149,7 +156,7 @@ class IMUFilter
                     List(2 * qw, -2 * qx, -2 * qy, 2 * qz, 0, 0, 0, 0, 0, 0));
     }
 
-    Eigen::Matrix<double, 3, 10> computeGyroMeasurementJacobian() const
+    Matrix<3, 10> computeGyroMeasurementJacobian() const
     {
         using namespace mathematica;
         return List(List(0, 0, 0, 0, 1, 0, 0, 1, 0, 0),
@@ -157,12 +164,12 @@ class IMUFilter
                     List(0, 0, 0, 0, 0, 0, 1, 0, 0, 1));
     }
 
-    Eigen::Vector3d predictAccelMeasurement() const
+    Vector3 predictAccelMeasurement() const
     {
-        const double qw = x_(0, 0);
-        const double qx = x_(1, 0);
-        const double qy = x_(2, 0);
-        const double qz = x_(3, 0);
+        const Scalar qw = x_(0, 0);
+        const Scalar qx = x_(1, 0);
+        const Scalar qy = x_(2, 0);
+        const Scalar qz = x_(3, 0);
 
         using namespace mathematica;
         return List(List(2 * qw * qy + 2 * qx * qz),
@@ -170,15 +177,15 @@ class IMUFilter
                     List(Power(qw, 2) - Power(qx, 2) - Power(qy, 2) + Power(qz, 2)));
     }
 
-    Eigen::Vector3d predictGyroMeasurement() const
+    Vector3 predictGyroMeasurement() const
     {
-        const double wlx = x_(4, 0);
-        const double wly = x_(5, 0);
-        const double wlz = x_(6, 0);
+        const Scalar wlx = x_(4, 0);
+        const Scalar wly = x_(5, 0);
+        const Scalar wlz = x_(6, 0);
 
-        const double bwlx = x_(7, 0);
-        const double bwly = x_(8, 0);
-        const double bwlz = x_(9, 0);
+        const Scalar bwlx = x_(7, 0);
+        const Scalar bwly = x_(8, 0);
+        const Scalar bwlz = x_(9, 0);
 
         using namespace mathematica;
         return List(List(bwlx + wlx),
@@ -193,7 +200,7 @@ public:
         P_.setZero();
 
         // TODO: runtime Q estimation
-        Eigen::Matrix<double, decltype(Q_)::RowsAtCompileTime, 1> Q_diag;
+        Matrix<decltype(Q_)::RowsAtCompileTime, 1> Q_diag;
         Q_diag.setZero();
         Q_diag <<
             0.0,   0.1,   0.1,   0.1,   // q (w x y z)
@@ -206,7 +213,7 @@ public:
 
     bool isInitialized() const { return initialized_; }
 
-    void initialize(double timestamp, const Eigen::Quaterniond& orientation, const Eigen::Matrix3d& orientation_cov)
+    void initialize(Scalar timestamp, const Quaternion& orientation, const Matrix3& orientation_cov)
     {
         ROS_ASSERT(!initialized_);
         initialized_ = true;
@@ -228,7 +235,7 @@ public:
         ROS_INFO_STREAM("Initial P:\n" << P_);
     }
 
-    void performTimeUpdate(double timestamp)
+    void performTimeUpdate(Scalar timestamp)
     {
         ROS_ASSERT(initialized_);
         ROS_ASSERT(timestamp > 0);
@@ -236,7 +243,7 @@ public:
         /*
          * Compute and check dt
          */
-        const double dtf = timestamp - state_timestamp_;
+        const Scalar dtf = timestamp - state_timestamp_;
         debug_pub_.publish("dtf", dtf);
         if (dtf <= 0)
         {
@@ -248,8 +255,8 @@ public:
         /*
          * Predict state
          */
-        const Eigen::Quaterniond delta_quat = quaternionFromEuler(getAngVel() * dtf);
-        const Eigen::Quaterniond new_q = (getQuat() * delta_quat).normalized();
+        const Quaternion delta_quat = quaternionFromEuler(getAngVel() * dtf);
+        const Quaternion new_q = (getQuat() * delta_quat).normalized();
 
         x_(0, 0) = new_q.w();
         x_(1, 0) = new_q.x();
@@ -259,13 +266,13 @@ public:
         /*
          * Predict covariance
          */
-        const Eigen::Matrix<double, 10, 10> F = computeStateTransitionJacobian(dtf);
+        const Matrix<10, 10> F = computeStateTransitionJacobian(dtf);
         P_ = F * P_ * F.transpose() + Q_;
 
         normalizeAndCheck();
     }
 
-    void performAccelUpdate(double timestamp, const Eigen::Vector3d& accel, const Eigen::Matrix3d& cov)
+    void performAccelUpdate(Scalar timestamp, const Vector3& accel, const Matrix3& cov)
     {
         ROS_ASSERT(initialized_);
         ROS_ASSERT(timestamp > 0);
@@ -275,13 +282,13 @@ public:
         accel_ = accel;
         accel_cov_ = cov;
 
-        const Eigen::Vector3d y = accel.normalized() - predictAccelMeasurement();
+        const Vector3 y = accel.normalized() - predictAccelMeasurement();
 
-        const Eigen::Matrix<double, 3, 10> H = computeAccelMeasurementJacobian();
+        const Matrix<3, 10> H = computeAccelMeasurementJacobian();
 
-        const Eigen::Matrix3d S = H * P_ * H.transpose() + cov * AccelCovMult;
+        const Matrix3 S = H * P_ * H.transpose() + cov * AccelCovMult;
 
-        const auto K = static_cast<Eigen::Matrix<double, 10, 3> >(P_ * H.transpose() * S.inverse());
+        const auto K = static_cast<Matrix<10, 3> >(P_ * H.transpose() * S.inverse());
 
         x_ = x_ + K * y;
 
@@ -292,20 +299,20 @@ public:
         normalizeAndCheck();
     }
 
-    void performGyroUpdate(double timestamp, const Eigen::Vector3d& angvel, const Eigen::Matrix3d& cov)
+    void performGyroUpdate(Scalar timestamp, const Vector3& angvel, const Matrix3& cov)
     {
         ROS_ASSERT(initialized_);
         ROS_ASSERT(timestamp > 0);
 
         state_timestamp_ = timestamp;
 
-        const Eigen::Vector3d y = angvel - predictGyroMeasurement();
+        const Vector3 y = angvel - predictGyroMeasurement();
 
-        const Eigen::Matrix<double, 3, 10> H = computeGyroMeasurementJacobian();
+        const Matrix<3, 10> H = computeGyroMeasurementJacobian();
 
-        const Eigen::Matrix3d S = H * P_ * H.transpose() + cov;
+        const Matrix3 S = H * P_ * H.transpose() + cov;
 
-        const auto K = static_cast<Eigen::Matrix<double, 10, 3> >(P_ * H.transpose() * S.inverse());
+        const auto K = static_cast<Matrix<10, 3> >(P_ * H.transpose() * S.inverse());
 
         x_ = x_ + K * y;
 
@@ -316,9 +323,9 @@ public:
         normalizeAndCheck();
     }
 
-    double getTimestamp() const { return state_timestamp_; }
+    Scalar getTimestamp() const { return state_timestamp_; }
 
-    std::pair<Eigen::Quaterniond, Eigen::Matrix3d> getOutputOrientation() const
+    std::pair<Quaternion, Matrix3> getOutputOrientation() const
     {
         /*
          * TODO: Proper covariance conversion (ref. S. Weiss)
@@ -326,12 +333,12 @@ public:
         return { getQuat(), P_.block<3, 3>(1, 1) };
     }
 
-    std::pair<Eigen::Vector3d, Eigen::Matrix3d> getOutputAngularVelocity() const
+    std::pair<Vector3, Matrix3> getOutputAngularVelocity() const
     {
         return { x_.block<3, 1>(4, 0), P_.block<3, 3>(4, 4) };
     }
 
-    std::pair<Eigen::Vector3d, Eigen::Matrix3d> getOutputAcceleration() const
+    std::pair<Vector3, Matrix3> getOutputAcceleration() const
     {
         return { accel_, accel_cov_ };
     }

@@ -99,11 +99,11 @@ class IMUFilterWrapper
         /*
          * Msg --> Eigen conversion
          */
-        Eigen::Quaterniond quat;
+        Quaternion quat;
         tf::quaternionMsgToEigen(msg.orientation, quat);
-        Eigen::Vector3d accel;
+        Vector3 accel;
         tf::vectorMsgToEigen(msg.linear_acceleration, accel);
-        Eigen::Vector3d angvel;
+        Vector3 angvel;
         tf::vectorMsgToEigen(msg.angular_velocity, angvel);
 
         const auto orientation_cov = matrixMsgToEigen<3, 3>(msg.orientation_covariance);

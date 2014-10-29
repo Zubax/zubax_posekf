@@ -78,6 +78,7 @@ class IMUFilterWrapper
         tf.header.stamp = msg.header.stamp;
         tf.child_frame_id = msg.header.frame_id;
         tf.transform.rotation = msg.orientation;
+        tf.transform.translation.z = 0.5;            // Add an offset to improve visualization
         pub_tf_.sendTransform(tf);
     }
 

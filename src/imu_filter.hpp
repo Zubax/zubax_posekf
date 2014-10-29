@@ -199,6 +199,8 @@ class IMUFilter
                                   const Matrix<NumStates, NumStates>& R,
                                   const Matrix<NumStates, 10>& H)
     {
+        // TODO: Use Cholesky decomposition / square root form
+        // TODO: Check variances (http://stats.stackexchange.com/questions/67262)
         ROS_ASSERT(initialized_);
         ROS_ASSERT(timestamp > 0);
 
@@ -212,6 +214,7 @@ class IMUFilter
 
         x_ = x_ + K * y;
 
+        // Joseph form is used instead of the simplified form to improve numerical stability
         const Matrix<10, 10> IKH = decltype(P_)::Identity() - K * H;
         P_ = IKH * P_ * IKH.transpose() + K * R_sym * K.transpose();
 

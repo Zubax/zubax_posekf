@@ -246,8 +246,8 @@ public:
         /*
          * Predict state
          */
-        const auto delta_quat = quaternionFromEuler(getAngVel() * dtf);
-        const auto new_q = (getQuat() * delta_quat).normalized();
+        const Eigen::Quaterniond delta_quat = quaternionFromEuler(getAngVel() * dtf);
+        const Eigen::Quaterniond new_q = (getQuat() * delta_quat).normalized();
 
         x_(0, 0) = new_q.w();
         x_(1, 0) = new_q.x();
@@ -257,7 +257,7 @@ public:
         /*
          * Predict covariance
          */
-        const auto F = computeStateTransitionJacobian(dtf);
+        const Eigen::Matrix<double, 10, 10> F = computeStateTransitionJacobian(dtf);
         P_ = F * P_ * F.transpose() + Q_;
 
         normalizeAndCheck();
@@ -273,13 +273,13 @@ public:
         accel_ = accel;
         accel_cov_ = cov;
 
-        const auto y = accel.normalized() - predictAccelMeasurement();
+        const Eigen::Vector3d y = accel.normalized() - predictAccelMeasurement();
 
-        const auto H = computeAccelMeasurementJacobian();
+        const Eigen::Matrix<double, 3, 10> H = computeAccelMeasurementJacobian();
 
-        const auto S = H * P_ * H.transpose() + cov;
+        const Eigen::Matrix3d S = H * P_ * H.transpose() + cov;
 
-        const auto K = P_ * H.transpose() * S.inverse();
+        const auto K = static_cast<Eigen::Matrix<double, 10, 3> >(P_ * H.transpose() * S.inverse());
 
         x_ = x_ + K * y;
 
@@ -297,13 +297,13 @@ public:
 
         state_timestamp_ = timestamp;
 
-        const auto y = angvel - predictGyroMeasurement();
+        const Eigen::Vector3d y = angvel - predictGyroMeasurement();
 
-        const auto H = computeGyroMeasurementJacobian();
+        const Eigen::Matrix<double, 3, 10> H = computeGyroMeasurementJacobian();
 
-        const auto S = H * P_ * H.transpose() + cov;
+        const Eigen::Matrix3d S = H * P_ * H.transpose() + cov;
 
-        const auto K = P_ * H.transpose() * S.inverse();
+        const auto K = static_cast<Eigen::Matrix<double, 10, 3> >(P_ * H.transpose() * S.inverse());
 
         x_ = x_ + K * y;
 

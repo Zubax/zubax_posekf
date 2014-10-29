@@ -193,6 +193,29 @@ class IMUFilter
                     List(bwlz + wlz));
     }
 
+    template <int NumStates>
+    void performMeasurementUpdate(Scalar timestamp,
+                                  const Vector<NumStates>& y,
+                                  const Matrix<NumStates, NumStates>& R,
+                                  const Matrix<NumStates, 10>& H)
+    {
+        ROS_ASSERT(initialized_);
+        ROS_ASSERT(timestamp > 0);
+
+        state_timestamp_ = timestamp;
+
+        const Matrix<NumStates, NumStates> S = H * P_ * H.transpose() + R;
+
+        const auto K = static_cast<Matrix<10, NumStates> >(P_ * H.transpose() * S.inverse());
+
+        x_ = x_ + K * y;
+
+        const Matrix<10, 10> IKH = decltype(P_)::Identity() - K * H;
+        P_ = IKH * P_ * IKH.transpose() + K * R * K.transpose();
+
+        normalizeAndCheck();
+    }
+
 public:
     IMUFilter()
     {
@@ -274,59 +297,17 @@ public:
 
     void performAccelUpdate(Scalar timestamp, const Vector3& accel, const Matrix3& cov)
     {
-        ROS_ASSERT(initialized_);
-        ROS_ASSERT(timestamp > 0);
-
-        state_timestamp_ = timestamp;
-
         accel_ = accel;
         accel_cov_ = cov;
-
         const Matrix3 R = cov * AccelCovMult;
-
         const Vector3 y = accel.normalized() - predictAccelMeasurement();
-
-        const Matrix<3, 10> H = computeAccelMeasurementJacobian();
-
-        const Matrix3 S = H * P_ * H.transpose() + R;
-
-        const auto K = static_cast<Matrix<10, 3> >(P_ * H.transpose() * S.inverse());
-
-        x_ = x_ + K * y;
-
-        const Matrix<10, 10> IKH = decltype(P_)::Identity() - K * H;
-        P_ = IKH * P_ * IKH.transpose() + K * R * K.transpose();
-
-        debug_pub_.publish("K_accel", K);
-
-        normalizeAndCheck();
+        performMeasurementUpdate(timestamp, y, R, computeAccelMeasurementJacobian());
     }
 
     void performGyroUpdate(Scalar timestamp, const Vector3& angvel, const Matrix3& cov)
     {
-        ROS_ASSERT(initialized_);
-        ROS_ASSERT(timestamp > 0);
-
-        state_timestamp_ = timestamp;
-
-        const Matrix3 R = cov;
-
         const Vector3 y = angvel - predictGyroMeasurement();
-
-        const Matrix<3, 10> H = computeGyroMeasurementJacobian();
-
-        const Matrix3 S = H * P_ * H.transpose() + R;
-
-        const auto K = static_cast<Matrix<10, 3> >(P_ * H.transpose() * S.inverse());
-
-        x_ = x_ + K * y;
-
-        const Matrix<10, 10> IKH = decltype(P_)::Identity() - K * H;
-        P_ = IKH * P_ * IKH.transpose() + K * R * K.transpose();
-
-        debug_pub_.publish("K_gyro", K);
-
-        normalizeAndCheck();
+        performMeasurementUpdate(timestamp, y, cov, computeGyroMeasurementJacobian());
     }
 
     Scalar getTimestamp() const { return state_timestamp_; }

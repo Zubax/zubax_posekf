@@ -22,6 +22,7 @@ template <int Rows, int Cols> using Matrix = Eigen::Matrix<Scalar, Rows, Cols>;
 template <int Size> using Vector = Matrix<Size, 1>;
 using Vector3 = Vector<3>;
 using Matrix3 = Matrix<3, 3>;
+using Matrix4 = Matrix<4, 4>;
 
 inline Quaternion quaternionFromEuler(const Vector3& roll_pitch_yaw)
 {
@@ -231,9 +232,9 @@ public:
         Matrix<decltype(Q_)::RowsAtCompileTime, 1> Q_diag;
         Q_diag.setZero();
         Q_diag <<
-            0.0,   0.1,   0.1,   0.1,   // q (w x y z)
+            0.01,  0.01,  0.01,  0.01,  // q (w x y z)
             0.1,   0.1,   0.1,          // angvel
-            0.001, 0.001, 0.001;        // gyro bias
+            1e-6,  1e-6, 1e-6;          // gyro bias
         Q_ = Q_diag.asDiagonal();
 
         accel_.setZero();
@@ -243,6 +244,7 @@ public:
 
     void initialize(Scalar timestamp, const Quaternion& orientation, const Matrix3& orientation_cov)
     {
+        (void)orientation_cov;
         ROS_ASSERT(!initialized_);
         initialized_ = true;
 
@@ -254,8 +256,7 @@ public:
         x_(2, 0) = orientation.y();
         x_(3, 0) = orientation.z();
 
-        P_.setIdentity();
-        P_.block<3, 3>(0, 0) = orientation_cov;
+        P_ = decltype(P_)::Identity() * 100.0;
 
         normalizeAndCheck();
 
@@ -319,10 +320,55 @@ public:
 
     std::pair<Quaternion, Matrix3> getOutputOrientation() const
     {
+        const auto q = getQuat();
+        const Scalar qw = q.w();
+        const Scalar qx = q.x();
+        const Scalar qy = q.y();
+        const Scalar qz = q.z();
+
         /*
-         * TODO: Proper covariance conversion (ref. S. Weiss)
+         * Quaternion covariance to Euler covariance conversion.
+         * Refer to the Mathematica script for derivations.
+         * Ref. "Development of a Real-Time Attitude System Using a Quaternion
+         * Parameterization and Non-Dedicated GPS Receivers" - John B. Schleppe (page 69)
          */
-        return { getQuat(), P_.block<3, 3>(1, 1) };
+        using namespace mathematica;
+        const Matrix<3, 4> G = List(
+            List(
+                (2 * qx * (1 - 2 * (Power(qx, 2) + Power(qy, 2)))) / (Power(1 - 2 * (Power(qx, 2) + Power(qy, 2)), 2)
+                    + 4 * Power(qw * qx + qy * qz, 2)),
+                (2 * qw * (1 - 2 * (Power(qx, 2) + Power(qy, 2)))) / (Power(1 - 2 * (Power(qx, 2) + Power(qy, 2)), 2)
+                    + 4 * Power(qw * qx + qy * qz, 2))
+                + (8 * qx * (qw * qx + qy * qz)) / (Power(1 - 2 * (Power(qx, 2) + Power(qy, 2)), 2)
+                    + 4 * Power(qw * qx + qy * qz, 2)),
+                (2 * (1 - 2 * (Power(qx, 2) + Power(qy, 2))) * qz) / (Power(1 - 2 * (Power(qx, 2) + Power(qy, 2)), 2)
+                    + 4 * Power(qw * qx + qy * qz, 2))
+                + (8 * qy * (qw * qx + qy * qz)) / (Power(1 - 2 * (Power(qx, 2) + Power(qy, 2)), 2)
+                    + 4 * Power(qw * qx + qy * qz, 2)),
+                (2 * qy * (1 - 2 * (Power(qx, 2) + Power(qy, 2)))) / (Power(1 - 2 * (Power(qx, 2) + Power(qy, 2)), 2)
+                    + 4 * Power(qw * qx + qy * qz, 2))),
+            List((2 * qy) / Sqrt(1 - 4 * Power(qw * qy - qx * qz, 2)),
+                 (-2 * qz) / Sqrt(1 - 4 * Power(qw * qy - qx * qz, 2)),
+                 (2 * qw) / Sqrt(1 - 4 * Power(qw * qy - qx * qz, 2)),
+                 (-2 * qx) / Sqrt(1 - 4 * Power(qw * qy - qx * qz, 2))),
+            List(
+                (2 * qz * (1 - 2 * (Power(qy, 2) + Power(qz, 2)))) / (4 * Power(qx * qy + qw * qz, 2)
+                    + Power(1 - 2 * (Power(qy, 2) + Power(qz, 2)), 2)),
+                (2 * qy * (1 - 2 * (Power(qy, 2) + Power(qz, 2)))) / (4 * Power(qx * qy + qw * qz, 2)
+                    + Power(1 - 2 * (Power(qy, 2) + Power(qz, 2)), 2)),
+                (8 * qy * (qx * qy + qw * qz)) / (4 * Power(qx * qy + qw * qz, 2)
+                    + Power(1 - 2 * (Power(qy, 2) + Power(qz, 2)), 2))
+                + (2 * qx * (1 - 2 * (Power(qy, 2) + Power(qz, 2)))) / (4 * Power(qx * qy + qw * qz, 2)
+                    + Power(1 - 2 * (Power(qy, 2) + Power(qz, 2)), 2)),
+                (8 * qz * (qx * qy + qw * qz)) / (4 * Power(qx * qy + qw * qz, 2)
+                    + Power(1 - 2 * (Power(qy, 2) + Power(qz, 2)), 2))
+                + (2 * qw * (1 - 2 * (Power(qy, 2) + Power(qz, 2)))) / (4 * Power(qx * qy + qw * qz, 2)
+                    + Power(1 - 2 * (Power(qy, 2) + Power(qz, 2)), 2))));
+
+        const Matrix4 C = P_.block<4, 4>(0, 0);
+        const Matrix3 cov = G * C * G.transpose();
+
+        return {q, cov};
     }
 
     std::pair<Vector3, Matrix3> getOutputAngularVelocity() const

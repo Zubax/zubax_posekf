@@ -28,6 +28,16 @@ quaternionFromEuler[ai_, aj_, ak_] := With[{
      cj cs - sj sc]]]
 
 (*
+ * Ref. "Euler Angles, Quaternions, and Transformation Matrices" - NASA (Shuttle program)
+ * Ref. http://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+ *)
+eulerFromQuaternion[q_] :=
+ With[{q0 = q[[1]], q1 = q[[2]], q2 = q[[3]], q3 = q[[4]]}, {
+   {ArcTan[1 - 2 (q1^2 + q2^2), 2 (q0 q1 + q2 q3)]},
+   {ArcSin[2 (q0 q2 - q3 q1)]},
+   {ArcTan[1 - 2 (q2^2 + q3^2), 2 (q0 q3 + q1 q2)]}}]
+
+(*
  * Small angle approximation - suitable for covariance propagation.
  * Note that state update equations shall use the full conversion algorithm anyway.
  *)
@@ -77,27 +87,37 @@ f = {
  {bwly},
  {bwlz}
 };
-Print["x=", x//MatrixForm]
-Print["f=", f//MatrixForm]
 
 F = jacobian[f,x];
-
-Print["F=", F//MatrixForm]
 
 (* Accelerometer update *)
 himuacc1 = rotateVectorByQuaternion[gravity1,q];
 Himuacc1 = jacobian[himuacc1,x];
 
-Print["himuacc1=", himuacc1//MatrixForm]
-Print["Himuacc1=", Himuacc1//MatrixForm]
-
 (* Gyro update *)
 hgyro = bodyAngVel + bodyGyroBias;
 Hgyro = jacobian[hgyro,x];
 
+(*
+ * Quaternion covariance to Euler covariance
+ * Ref. "Development of a Real-Time Attitude System Using a Quaternion
+ * Parameterization and Non-Dedicated GPS Receivers" - John B. Schleppe (page 69)
+ *)
+rpy = eulerFromQuaternion[q];
+QuaternionToEulerCovarianceJacobian = jacobian[rpy, List@@q];
+
+
+
+(* Outputs *)
+Print["x=", x//MatrixForm]
+Print["f=", f//MatrixForm]
+Print["F=", F//MatrixForm]
+Print["himuacc1=", himuacc1//MatrixForm]
+Print["Himuacc1=", Himuacc1//MatrixForm]
 Print["hgyro=", hgyro//MatrixForm]
 Print["Hgyro=", Hgyro//MatrixForm]
-
+Print["rpy=", rpy//MatrixForm]
+Print["QuaternionToEulerCovarianceJacobian=", QuaternionToEulerCovarianceJacobian//MatrixForm]
 
 
 

@@ -13,6 +13,15 @@
 #include "mathematica.hpp"
 #include "debug_publisher.hpp"
 
+#define ZUBAX_POSEKF_STRINGIZE2(x)      #x
+#define ZUBAX_POSEKF_STRINGIZE(x)       ZUBAX_POSEKF_STRINGIZE2(x)
+#define ZUBAX_POSEKF_MAKE_ERROR_MSG(x)  (__FILE__ ":" ZUBAX_POSEKF_STRINGIZE(__LINE__) ": " #x)
+#define ZUBAX_POSEKF_ENFORCE(x)                                                 \
+    if (!(x)) {                                                                 \
+        ROS_ERROR(ZUBAX_POSEKF_MAKE_ERROR_MSG(x));                              \
+        throw ::zubax_posekf::FilterException(ZUBAX_POSEKF_MAKE_ERROR_MSG(x));  \
+    }
+
 namespace zubax_posekf
 {
 
@@ -23,6 +32,12 @@ template <int Size> using Vector = Matrix<Size, 1>;
 using Vector3 = Vector<3>;
 using Matrix3 = Matrix<3, 3>;
 using Matrix4 = Matrix<4, 4>;
+
+class FilterException : std::runtime_error
+{
+public:
+    FilterException(const std::string& text) : std::runtime_error(text) { }
+};
 
 inline Quaternion quaternionFromEuler(const Vector3& roll_pitch_yaw)
 {
@@ -59,6 +74,40 @@ inline Quaternion computeDeltaQuaternion(const Quaternion& from, const Quaternio
     return to.normalized() * from.inverse();
 }
 
+template <typename Value, typename Min, typename Max>
+inline decltype(Value() + Min() + Max()) constrain(const Value& value, const Min& min, const Max& max)
+{
+    typedef decltype(Value() + Min() + Max()) CommonType;
+    return std::min<CommonType>(std::max<CommonType>(value, min), max);
+}
+
+template <typename Value, typename Limit>
+inline decltype(Value() + Limit()) constrainSymmetric(const Value& value, const Limit& limit)
+{
+    const auto abs_limit = std::abs(limit);
+    return constrain(value, -abs_limit, abs_limit);
+}
+
+template <typename Scalar, int Size, int Options>
+inline void fixCovarianceMatrix(Eigen::Matrix<Scalar, Size, Size, Options>& matrix,
+                                const Scalar& covariance_abs_limit, const Scalar& min_variance)
+{
+    Scalar* const ptr = matrix.data();
+
+    ROS_ASSERT(ptr != nullptr);
+    ROS_ASSERT(covariance_abs_limit > 0);
+    ROS_ASSERT(min_variance > 0);
+
+    for (int i = 0; i < (Size * Size); i++)
+    {
+        const bool on_diagonal = (i / Size) == (i % Size);
+        const Scalar min = on_diagonal ? min_variance : -covariance_abs_limit;
+        ptr[i] = constrain(ptr[i], min, covariance_abs_limit);
+    }
+
+    matrix = 0.5 * (matrix + matrix.transpose());  // Make sure the matrix stays symmetric
+}
+
 class IMUFilter
 {
     DebugPublisher debug_pub_;
@@ -74,6 +123,8 @@ class IMUFilter
     Matrix<10, 10> Q_;
 
     const Scalar AccelCovMult = 1000.0;
+    const Scalar MaxGyroDrift = 0.1;
+    const Scalar MaxCovariance = 1e6;
 
     Scalar state_timestamp_ = 0.0;
     bool initialized_ = false;
@@ -81,50 +132,49 @@ class IMUFilter
     Vector3 accel_;       ///< This is not included in the state vector
     Matrix3 accel_cov_;   ///< Ditto
 
-    Quaternion getQuat() const  { return Quaternion(x_(0, 0), x_(1, 0), x_(2, 0), x_(3, 0)); }
-    Vector3 getAngVel() const   { return Vector3(x_(4, 0), x_(5, 0), x_(6, 0)); }
-    Vector3 getGyroBias() const { return Vector3(x_(7, 0), x_(8, 0), x_(9, 0)); }
+    Quaternion getQuat() const  { return Quaternion(x_[0], x_[1], x_[2], x_[3]); }
+    Vector3 getAngVel() const   { return Vector3(x_[4], x_[5], x_[6]); }
+    Vector3 getGyroBias() const { return Vector3(x_[7], x_[8], x_[9]); }
 
     void normalizeAndCheck()
     {
+        // Quaternion normalization
         const auto q = getQuat().normalized();
-        x_(0, 0) = q.w();
-        x_(1, 0) = q.x();
-        x_(2, 0) = q.y();
-        x_(3, 0) = q.z();
+        x_[0] = q.w();
+        x_[1] = q.x();
+        x_[2] = q.y();
+        x_[3] = q.z();
 
-        P_ = 0.5 * (P_ + P_.transpose());  // Make sure P stays symmetric
+        // Gyro drift constrain
+        for (int i = 7; i <= 9; i++)
+        {
+            x_[i] = constrainSymmetric(x_[i], MaxGyroDrift);
+        }
+
+        // P validation, TODO: error logging
+        fixCovarianceMatrix(P_, MaxCovariance, 1e-9);
 
         debug_pub_.publish("x", x_);
         debug_pub_.publish("P", P_);
         debug_pub_.publish("Q", Q_);
 
-        ROS_ASSERT(std::isfinite(x_.sum()));
-        ROS_ASSERT(std::isfinite(P_.sum()));
-        ROS_ASSERT(std::isfinite(Q_.sum()));
+        ZUBAX_POSEKF_ENFORCE(std::isfinite(x_.sum()));
+        ZUBAX_POSEKF_ENFORCE(std::isfinite(P_.sum()));
+        ZUBAX_POSEKF_ENFORCE(std::isfinite(Q_.sum()));
 
-        for (int i = 0; i < P_.rows(); i++)
-        {
-            if (P_(i, i) <= 0.0)
-            {
-                ROS_FATAL_STREAM("Invalid P:\n" << P_ << "\nx:\n" << x_);
-                ROS_ISSUE_BREAK();
-            }
-        }
-
-        ROS_ASSERT(std::isfinite(state_timestamp_) && (state_timestamp_ > 0.0));
+        ZUBAX_POSEKF_ENFORCE(std::isfinite(state_timestamp_) && (state_timestamp_ > 0.0));
     }
 
     Matrix<10, 10> computeStateTransitionJacobian(const Scalar dtf) const
     {
-        const Scalar qw = x_(0, 0);
-        const Scalar qx = x_(1, 0);
-        const Scalar qy = x_(2, 0);
-        const Scalar qz = x_(3, 0);
+        const Scalar qw = x_[0];
+        const Scalar qx = x_[1];
+        const Scalar qy = x_[2];
+        const Scalar qz = x_[3];
 
-        const Scalar wlx = x_(4, 0);
-        const Scalar wly = x_(5, 0);
-        const Scalar wlz = x_(6, 0);
+        const Scalar wlx = x_[4];
+        const Scalar wly = x_[5];
+        const Scalar wlz = x_[6];
 
         using namespace mathematica;
         return List(
@@ -146,10 +196,10 @@ class IMUFilter
 
     Matrix<3, 10> computeAccelMeasurementJacobian() const
     {
-        const Scalar qw = x_(0, 0);
-        const Scalar qx = x_(1, 0);
-        const Scalar qy = x_(2, 0);
-        const Scalar qz = x_(3, 0);
+        const Scalar qw = x_[0];
+        const Scalar qx = x_[1];
+        const Scalar qy = x_[2];
+        const Scalar qz = x_[3];
 
         using namespace mathematica;
         return List(List(2 * qy, 2 * qz, 2 * qw, 2 * qx, 0, 0, 0, 0, 0, 0),
@@ -167,10 +217,10 @@ class IMUFilter
 
     Vector3 predictAccelMeasurement() const
     {
-        const Scalar qw = x_(0, 0);
-        const Scalar qx = x_(1, 0);
-        const Scalar qy = x_(2, 0);
-        const Scalar qz = x_(3, 0);
+        const Scalar qw = x_[0];
+        const Scalar qx = x_[1];
+        const Scalar qy = x_[2];
+        const Scalar qz = x_[3];
 
         using namespace mathematica;
         return List(List(2 * qw * qy + 2 * qx * qz),
@@ -180,13 +230,13 @@ class IMUFilter
 
     Vector3 predictGyroMeasurement() const
     {
-        const Scalar wlx = x_(4, 0);
-        const Scalar wly = x_(5, 0);
-        const Scalar wlz = x_(6, 0);
+        const Scalar wlx = x_[4];
+        const Scalar wly = x_[5];
+        const Scalar wlz = x_[6];
 
-        const Scalar bwlx = x_(7, 0);
-        const Scalar bwly = x_(8, 0);
-        const Scalar bwlz = x_(9, 0);
+        const Scalar bwlx = x_[7];
+        const Scalar bwly = x_[8];
+        const Scalar bwlz = x_[9];
 
         using namespace mathematica;
         return List(List(bwlx + wlx),
@@ -251,10 +301,10 @@ public:
         state_timestamp_ = timestamp;
 
         x_.setZero();
-        x_(0, 0) = orientation.w();
-        x_(1, 0) = orientation.x();
-        x_(2, 0) = orientation.y();
-        x_(3, 0) = orientation.z();
+        x_[0] = orientation.w();
+        x_[1] = orientation.x();
+        x_[2] = orientation.y();
+        x_[3] = orientation.z();
 
         P_ = decltype(P_)::Identity() * 100.0;
 
@@ -287,10 +337,10 @@ public:
         const Quaternion delta_quat = quaternionFromEuler(getAngVel() * dtf);
         const Quaternion new_q = (getQuat() * delta_quat).normalized();
 
-        x_(0, 0) = new_q.w();
-        x_(1, 0) = new_q.x();
-        x_(2, 0) = new_q.y();
-        x_(3, 0) = new_q.z();
+        x_[0] = new_q.w();
+        x_[1] = new_q.x();
+        x_[2] = new_q.y();
+        x_[3] = new_q.z();
 
         /*
          * Predict covariance

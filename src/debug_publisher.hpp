@@ -46,7 +46,7 @@ public:
         getPublisher<Message>(name).publish(msg);
     }
 
-    template <class Derived>
+    template <typename Derived>
     void publish(const std::string& name, const Eigen::MatrixBase<Derived>& matrix)
     {
         std_msgs::Float64MultiArray msg;

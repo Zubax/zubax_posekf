@@ -119,5 +119,3 @@ Print["Hgyro=", Hgyro//MatrixForm]
 Print["rpy=", rpy//MatrixForm]
 Print["QuaternionToEulerCovarianceJacobian=", QuaternionToEulerCovarianceJacobian//MatrixForm]
 
-
-

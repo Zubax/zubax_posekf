@@ -295,12 +295,16 @@ public:
         P_.setZero();
 
         // TODO: runtime Q estimation
-        Matrix<decltype(Q_)::RowsAtCompileTime, 1> Q_diag;
+        const Scalar QVarQuat     = 1e-1;
+        const Scalar QVarAngVel   = 1e+0;
+        const Scalar QVarGyroBias = 1e-6;
+
+        Vector<decltype(Q_)::RowsAtCompileTime> Q_diag;
         Q_diag.setZero();
         Q_diag <<
-            0.01,  0.01,  0.01,  0.01,  // q (w x y z)
-            0.1,   0.1,   0.1,          // angvel
-            1e-6,  1e-6, 1e-6;          // gyro bias
+            QVarQuat, QVarQuat, QVarQuat, QVarQuat,
+            QVarAngVel, QVarAngVel, QVarAngVel,
+            QVarGyroBias, QVarGyroBias, QVarGyroBias;
         Q_ = Q_diag.asDiagonal();
 
         accel_.setZero();
@@ -342,7 +346,7 @@ public:
         debug_pub_.publish("dtf", dtf);
         if (dtf <= 0)
         {
-            ROS_WARN("Time update: Nonpositive dt [%f]", dtf);
+            ROS_ERROR("Time update: Nonpositive dt [%f]", dtf);
             return;
         }
         state_timestamp_ = timestamp;

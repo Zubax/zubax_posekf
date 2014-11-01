@@ -66,7 +66,7 @@ public:
                 const auto row = matrix.row(row_idx);
                 for (int col_idx = 0; col_idx < matrix.cols(); col_idx++)
                 {
-                    msg.data[write_idx++] = row[col_idx];
+                    msg.data[write_idx++] = static_cast<double>(row[col_idx]);
                 }
             }
         }

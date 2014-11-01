@@ -75,17 +75,27 @@ inline Quaternion computeDeltaQuaternion(const Quaternion& from, const Quaternio
 }
 
 template <typename Value, typename Min, typename Max>
-inline decltype(Value() + Min() + Max()) constrain(const Value& value, const Min& min, const Max& max)
+inline bool checkRangeAndConstrain(Value& inout_value, const Min& min, const Max& max)
 {
-    typedef decltype(Value() + Min() + Max()) CommonType;
-    return std::min<CommonType>(std::max<CommonType>(value, min), max);
+    ROS_ASSERT(min < max);
+    if (inout_value < min)
+    {
+        inout_value = min;
+        return false;
+    }
+    if (inout_value > max)
+    {
+        inout_value = max;
+        return false;
+    }
+    return true;
 }
 
 template <typename Value, typename Limit>
-inline decltype(Value() + Limit()) constrainSymmetric(const Value& value, const Limit& limit)
+inline bool checkRangeAndConstrainSymmetric(Value& inout_value, const Limit& limit)
 {
     const auto abs_limit = std::abs(limit);
-    return constrain(value, -abs_limit, abs_limit);
+    return checkRangeAndConstrain(inout_value, -abs_limit, abs_limit);
 }
 
 template <typename Scalar, int Size, int Options>
@@ -103,18 +113,7 @@ inline bool validateAndFixCovarianceMatrix(Eigen::Matrix<Scalar, Size, Size, Opt
     {
         const bool on_diagonal = (i / Size) == (i % Size);
         const Scalar min = on_diagonal ? min_variance : -covariance_abs_limit;
-
-        if (ptr[i] < min)
-        {
-            ptr[i] = min;
-            retval = false;
-        }
-
-        if (ptr[i] > covariance_abs_limit)
-        {
-            ptr[i] = covariance_abs_limit;
-            retval = false;
-        }
+        retval = checkRangeAndConstrain(ptr[i], min, covariance_abs_limit) ? retval : false;
     }
 
     matrix = 0.5 * (matrix + matrix.transpose());  // Make sure the matrix stays symmetric
@@ -161,7 +160,10 @@ class IMUFilter
         // Gyro drift constrain
         for (int i = 7; i <= 9; i++)
         {
-            x_[i] = constrainSymmetric(x_[i], MaxGyroDrift);
+            if (!checkRangeAndConstrainSymmetric(x_[i], MaxGyroDrift))
+            {
+                ROS_WARN_THROTTLE(1, "Gyro drift is too high");
+            }
         }
 
         // P validation

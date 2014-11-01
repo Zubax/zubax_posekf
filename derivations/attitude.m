@@ -91,7 +91,7 @@ f = {
 F = jacobian[f,x];
 
 (* Accelerometer update *)
-himuacc1 = rotateVectorByQuaternion[gravity1,q];
+himuacc1 = rotateVectorByQuaternion[gravity1,qr];
 Himuacc1 = jacobian[himuacc1,x];
 
 (* Gyro update *)
@@ -118,4 +118,7 @@ Print["hgyro=", hgyro//MatrixForm]
 Print["Hgyro=", Hgyro//MatrixForm]
 Print["rpy=", rpy//MatrixForm]
 Print["QuaternionToEulerCovarianceJacobian=", QuaternionToEulerCovarianceJacobian//MatrixForm]
+
+
+
 

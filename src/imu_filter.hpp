@@ -220,8 +220,8 @@ class IMUFilter
         const Scalar qz = x_[3];
 
         using namespace mathematica;
-        return List(List(2 * qy, 2 * qz, 2 * qw, 2 * qx, 0, 0, 0, 0, 0, 0),
-                    List(-2 * qx, -2 * qw, 2 * qz, 2 * qy, 0, 0, 0, 0, 0, 0),
+        return List(List(-2 * qy, 2 * qz, -2 * qw, 2 * qx, 0, 0, 0, 0, 0, 0),
+                    List(2 * qx, 2 * qw, 2 * qz, 2 * qy, 0, 0, 0, 0, 0, 0),
                     List(2 * qw, -2 * qx, -2 * qy, 2 * qz, 0, 0, 0, 0, 0, 0));
     }
 
@@ -241,8 +241,8 @@ class IMUFilter
         const Scalar qz = x_[3];
 
         using namespace mathematica;
-        return List(List(2 * qw * qy + 2 * qx * qz),
-                    List(-2 * qw * qx + 2 * qy * qz),
+        return List(List(-2 * qw * qy + 2 * qx * qz),
+                    List(2 * qw * qx + 2 * qy * qz),
                     List(Power(qw, 2) - Power(qx, 2) - Power(qy, 2) + Power(qz, 2)));
     }
 

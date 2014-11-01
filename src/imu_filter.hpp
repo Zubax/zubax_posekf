@@ -89,9 +89,10 @@ inline decltype(Value() + Limit()) constrainSymmetric(const Value& value, const 
 }
 
 template <typename Scalar, int Size, int Options>
-inline void fixCovarianceMatrix(Eigen::Matrix<Scalar, Size, Size, Options>& matrix,
-                                const Scalar& covariance_abs_limit, const Scalar& min_variance)
+inline bool validateAndFixCovarianceMatrix(Eigen::Matrix<Scalar, Size, Size, Options>& matrix,
+                                           const Scalar& covariance_abs_limit, const Scalar& min_variance)
 {
+    bool retval = true;
     Scalar* const ptr = matrix.data();
 
     ROS_ASSERT(ptr != nullptr);
@@ -102,10 +103,22 @@ inline void fixCovarianceMatrix(Eigen::Matrix<Scalar, Size, Size, Options>& matr
     {
         const bool on_diagonal = (i / Size) == (i % Size);
         const Scalar min = on_diagonal ? min_variance : -covariance_abs_limit;
-        ptr[i] = constrain(ptr[i], min, covariance_abs_limit);
+
+        if (ptr[i] < min)
+        {
+            ptr[i] = min;
+            retval = false;
+        }
+
+        if (ptr[i] > covariance_abs_limit)
+        {
+            ptr[i] = covariance_abs_limit;
+            retval = false;
+        }
     }
 
     matrix = 0.5 * (matrix + matrix.transpose());  // Make sure the matrix stays symmetric
+    return retval;
 }
 
 class IMUFilter
@@ -151,8 +164,11 @@ class IMUFilter
             x_[i] = constrainSymmetric(x_[i], MaxGyroDrift);
         }
 
-        // P validation, TODO: error logging
-        fixCovarianceMatrix(P_, MaxCovariance, 1e-9);
+        // P validation
+        if (!validateAndFixCovarianceMatrix(P_, MaxCovariance, 1e-9))
+        {
+            ROS_ERROR_STREAM_THROTTLE(1, "Matrix P has been fixed\n");
+        }
 
         debug_pub_.publish("x", x_);
         debug_pub_.publish("P", P_);

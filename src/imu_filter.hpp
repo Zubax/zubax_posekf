@@ -169,7 +169,7 @@ class IMUFilter
         // P validation
         if (!validateAndFixCovarianceMatrix(P_, MaxCovariance, 1e-9))
         {
-            ROS_ERROR_STREAM_THROTTLE(1, "Matrix P has been fixed\n");
+            ROS_ERROR_STREAM_THROTTLE(1, "Matrix P has been fixed\n" << P_);
         }
 
         debug_pub_.publish("x", x_);

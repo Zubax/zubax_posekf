@@ -268,8 +268,6 @@ class IMUFilter
                                   const Matrix<NumStates, NumStates>& R,
                                   const Matrix<NumStates, 10>& H)
     {
-        // TODO: Use Cholesky decomposition / square root form
-        // TODO: Check variances (http://stats.stackexchange.com/questions/67262)
         ROS_ASSERT(initialized_);
         ROS_ASSERT(timestamp > 0);
 

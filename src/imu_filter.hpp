@@ -301,7 +301,7 @@ public:
         P_.setZero();
 
         // TODO: runtime Q estimation
-        const Scalar QVarQuat     = 1e-3;
+        const Scalar QVarQuat     = 1e-6;
         const Scalar QVarAngVel   = 1e+0;
         const Scalar QVarGyroBias = 1e-6;
 

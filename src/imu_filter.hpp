@@ -134,7 +134,7 @@ class IMUFilter
     Matrix<10, 10> P_;
     Matrix<10, 10> Q_;
 
-    const Scalar AccelCovMult = 1000.0;
+    const Scalar AccelCovMult = 1e3;
     const Scalar MaxGyroDrift = 0.1;
     const Scalar MaxCovariance = 1e6;
 
@@ -277,9 +277,15 @@ class IMUFilter
 
         const Matrix<NumStates, NumStates> R_sym = 0.5 * (R + R.transpose());  // Ensure that R is symmetric
 
-        const Matrix<NumStates, NumStates> S = H * P_ * H.transpose() + R_sym;
+        Matrix<NumStates, NumStates> S_inv;
+        {
+            const Matrix<NumStates, NumStates> S = H * P_ * H.transpose() + R_sym;
+            bool s_is_invertible = false;
+            S.computeInverseWithCheck(S_inv, s_is_invertible);
+            ZUBAX_POSEKF_ENFORCE(s_is_invertible);
+        }
 
-        const auto K = static_cast<Matrix<10, NumStates> >(P_ * H.transpose() * S.inverse());
+        const auto K = static_cast<Matrix<10, NumStates> >(P_ * H.transpose() * S_inv);
 
         x_ = x_ + K * y;
 
@@ -297,7 +303,7 @@ public:
         P_.setZero();
 
         // TODO: runtime Q estimation
-        const Scalar QVarQuat     = 1e-1;
+        const Scalar QVarQuat     = 1e-3;
         const Scalar QVarAngVel   = 1e+0;
         const Scalar QVarGyroBias = 1e-6;
 
@@ -375,6 +381,7 @@ public:
 
     void performAccelUpdate(Scalar timestamp, const Vector3& accel, const Matrix3& cov)
     {
+        ZUBAX_POSEKF_ENFORCE(cov.norm() > 0);
         accel_ = accel;
         accel_cov_ = cov;
         const Matrix3 R = cov * AccelCovMult;
@@ -384,6 +391,7 @@ public:
 
     void performGyroUpdate(Scalar timestamp, const Vector3& angvel, const Matrix3& cov)
     {
+        ZUBAX_POSEKF_ENFORCE(cov.norm() > 0);
         const Vector3 y = angvel - predictGyroMeasurement();
         performMeasurementUpdate(timestamp, y, cov, computeGyroMeasurementJacobian());
     }

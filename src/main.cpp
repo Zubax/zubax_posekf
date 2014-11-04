@@ -107,8 +107,18 @@ class IMUFilterWrapper
         tf::vectorMsgToEigen(msg.angular_velocity, angvel);
 
         const auto orientation_cov = matrixMsgToEigen<3, 3>(msg.orientation_covariance);
-        const auto accel_cov       = matrixMsgToEigen<3, 3>(msg.linear_acceleration_covariance);
-        const auto angvel_cov      = matrixMsgToEigen<3, 3>(msg.angular_velocity_covariance);
+        auto accel_cov  = matrixMsgToEigen<3, 3>(msg.linear_acceleration_covariance);
+        auto angvel_cov = matrixMsgToEigen<3, 3>(msg.angular_velocity_covariance);
+
+        if (accel_cov.norm() <= 0)
+        {
+            accel_cov = decltype(accel_cov)::Identity() * 1.0;
+        }
+
+        if (angvel_cov.norm() <= 0)
+        {
+            angvel_cov = decltype(angvel_cov)::Identity() * 0.01;
+        }
 
         /*
          * Filter update

@@ -183,85 +183,6 @@ class IMUFilter
         ZUBAX_POSEKF_ENFORCE(std::isfinite(state_timestamp_) && (state_timestamp_ > 0.0));
     }
 
-    Matrix<10, 10> computeStateTransitionJacobian(const Scalar dtf) const
-    {
-        const Scalar qw = x_[0];
-        const Scalar qx = x_[1];
-        const Scalar qy = x_[2];
-        const Scalar qz = x_[3];
-
-        const Scalar wlx = x_[4];
-        const Scalar wly = x_[5];
-        const Scalar wlz = x_[6];
-
-        using namespace mathematica;
-        return List(
-            List(1, -(dtf * wlx) / 2., -(dtf * wly) / 2., -(dtf * wlz) / 2., -(dtf * qx) / 2., -(dtf * qy) / 2.,
-                 -(dtf * qz) / 2., 0, 0, 0),
-            List((dtf * wlx) / 2., 1, (dtf * wlz) / 2., -(dtf * wly) / 2., (dtf * qw) / 2., -(dtf * qz) / 2.,
-                 (dtf * qy) / 2., 0, 0, 0),
-            List((dtf * wly) / 2., -(dtf * wlz) / 2., 1, (dtf * wlx) / 2., (dtf * qz) / 2., (dtf * qw) / 2.,
-                 -(dtf * qx) / 2., 0, 0, 0),
-            List((dtf * wlz) / 2., (dtf * wly) / 2., -(dtf * wlx) / 2., 1, -(dtf * qy) / 2., (dtf * qx) / 2.,
-                 (dtf * qw) / 2., 0, 0, 0),
-            List(0, 0, 0, 0, 1, 0, 0, 0, 0, 0),
-            List(0, 0, 0, 0, 0, 1, 0, 0, 0, 0),
-            List(0, 0, 0, 0, 0, 0, 1, 0, 0, 0),
-            List(0, 0, 0, 0, 0, 0, 0, 1, 0, 0),
-            List(0, 0, 0, 0, 0, 0, 0, 0, 1, 0),
-            List(0, 0, 0, 0, 0, 0, 0, 0, 0, 1));
-    }
-
-    Matrix<3, 10> computeAccelMeasurementJacobian() const
-    {
-        const Scalar qw = x_[0];
-        const Scalar qx = x_[1];
-        const Scalar qy = x_[2];
-        const Scalar qz = x_[3];
-
-        using namespace mathematica;
-        return List(List(-2 * qy, 2 * qz, -2 * qw, 2 * qx, 0, 0, 0, 0, 0, 0),
-                    List(2 * qx, 2 * qw, 2 * qz, 2 * qy, 0, 0, 0, 0, 0, 0),
-                    List(2 * qw, -2 * qx, -2 * qy, 2 * qz, 0, 0, 0, 0, 0, 0));
-    }
-
-    Matrix<3, 10> computeGyroMeasurementJacobian() const
-    {
-        using namespace mathematica;
-        return List(List(0, 0, 0, 0, 1, 0, 0, 1, 0, 0),
-                    List(0, 0, 0, 0, 0, 1, 0, 0, 1, 0),
-                    List(0, 0, 0, 0, 0, 0, 1, 0, 0, 1));
-    }
-
-    Vector3 predictAccelMeasurement() const
-    {
-        const Scalar qw = x_[0];
-        const Scalar qx = x_[1];
-        const Scalar qy = x_[2];
-        const Scalar qz = x_[3];
-
-        using namespace mathematica;
-        return List(List(-2 * qw * qy + 2 * qx * qz),
-                    List(2 * qw * qx + 2 * qy * qz),
-                    List(Power(qw, 2) - Power(qx, 2) - Power(qy, 2) + Power(qz, 2)));
-    }
-
-    Vector3 predictGyroMeasurement() const
-    {
-        const Scalar wlx = x_[4];
-        const Scalar wly = x_[5];
-        const Scalar wlz = x_[6];
-
-        const Scalar bwlx = x_[7];
-        const Scalar bwly = x_[8];
-        const Scalar bwlz = x_[9];
-
-        using namespace mathematica;
-        return List(List(bwlx + wlx),
-                    List(bwly + wly),
-                    List(bwlz + wlz));
-    }
-
     template <int NumStates>
     void performMeasurementUpdate(Scalar timestamp,
                                   const Vector<NumStates>& y,
@@ -371,7 +292,32 @@ public:
         /*
          * Predict covariance
          */
-        const Matrix<10, 10> F = computeStateTransitionJacobian(dtf);
+        const Scalar qw = x_[0];
+        const Scalar qx = x_[1];
+        const Scalar qy = x_[2];
+        const Scalar qz = x_[3];
+
+        const Scalar wlx = x_[4];
+        const Scalar wly = x_[5];
+        const Scalar wlz = x_[6];
+
+        using namespace mathematica;
+        const Matrix<10, 10> F = List(
+            List(1, -(dtf * wlx) / 2., -(dtf * wly) / 2., -(dtf * wlz) / 2., -(dtf * qx) / 2., -(dtf * qy) / 2.,
+                 -(dtf * qz) / 2., 0, 0, 0),
+            List((dtf * wlx) / 2., 1, (dtf * wlz) / 2., -(dtf * wly) / 2., (dtf * qw) / 2., -(dtf * qz) / 2.,
+                 (dtf * qy) / 2., 0, 0, 0),
+            List((dtf * wly) / 2., -(dtf * wlz) / 2., 1, (dtf * wlx) / 2., (dtf * qz) / 2., (dtf * qw) / 2.,
+                 -(dtf * qx) / 2., 0, 0, 0),
+            List((dtf * wlz) / 2., (dtf * wly) / 2., -(dtf * wlx) / 2., 1, -(dtf * qy) / 2., (dtf * qx) / 2.,
+                 (dtf * qw) / 2., 0, 0, 0),
+            List(0, 0, 0, 0, 1, 0, 0, 0, 0, 0),
+            List(0, 0, 0, 0, 0, 1, 0, 0, 0, 0),
+            List(0, 0, 0, 0, 0, 0, 1, 0, 0, 0),
+            List(0, 0, 0, 0, 0, 0, 0, 1, 0, 0),
+            List(0, 0, 0, 0, 0, 0, 0, 0, 1, 0),
+            List(0, 0, 0, 0, 0, 0, 0, 0, 0, 1));
+
         P_ = F * P_ * F.transpose() + Q_;
 
         normalizeAndCheck();
@@ -380,18 +326,57 @@ public:
     void performAccelUpdate(Scalar timestamp, const Vector3& accel, const Matrix3& cov)
     {
         ZUBAX_POSEKF_ENFORCE(cov.norm() > 0);
+
         accel_ = accel;
         accel_cov_ = cov;
+
         const Matrix3 R = cov * AccelCovMult;
-        const Vector3 y = accel.normalized() - predictAccelMeasurement();
-        performMeasurementUpdate(timestamp, y, R, computeAccelMeasurementJacobian());
+
+        const Scalar qw = x_[0];
+        const Scalar qx = x_[1];
+        const Scalar qy = x_[2];
+        const Scalar qz = x_[3];
+
+        using namespace mathematica;
+
+        const Vector3 h = List(List(-2 * qw * qy + 2 * qx * qz),
+                               List(2 * qw * qx + 2 * qy * qz),
+                               List(Power(qw, 2) - Power(qx, 2) - Power(qy, 2) + Power(qz, 2)));
+
+        const Matrix<3, 10> H = List(List(-2 * qy, 2 * qz, -2 * qw, 2 * qx, 0, 0, 0, 0, 0, 0),
+                                     List(2 * qx, 2 * qw, 2 * qz, 2 * qy, 0, 0, 0, 0, 0, 0),
+                                     List(2 * qw, -2 * qx, -2 * qy, 2 * qz, 0, 0, 0, 0, 0, 0));
+
+        const Vector3 y = accel.normalized() - h;
+
+        performMeasurementUpdate(timestamp, y, R, H);
     }
 
     void performGyroUpdate(Scalar timestamp, const Vector3& angvel, const Matrix3& cov)
     {
         ZUBAX_POSEKF_ENFORCE(cov.norm() > 0);
-        const Vector3 y = angvel - predictGyroMeasurement();
-        performMeasurementUpdate(timestamp, y, cov, computeGyroMeasurementJacobian());
+
+        const Scalar wlx = x_[4];
+        const Scalar wly = x_[5];
+        const Scalar wlz = x_[6];
+
+        const Scalar bwlx = x_[7];
+        const Scalar bwly = x_[8];
+        const Scalar bwlz = x_[9];
+
+        using namespace mathematica;
+
+        const Vector3 h = List(List(bwlx + wlx),
+                               List(bwly + wly),
+                               List(bwlz + wlz));
+
+        const Matrix<3, 10> H = List(List(0, 0, 0, 0, 1, 0, 0, 1, 0, 0),
+                                     List(0, 0, 0, 0, 0, 1, 0, 0, 1, 0),
+                                     List(0, 0, 0, 0, 0, 0, 1, 0, 0, 1));
+
+        const Vector3 y = angvel - h;
+
+        performMeasurementUpdate(timestamp, y, cov, H);
     }
 
     Scalar getTimestamp() const { return state_timestamp_; }

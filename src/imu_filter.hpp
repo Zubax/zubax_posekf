@@ -238,8 +238,8 @@ public:
         const Scalar QVarQuat      = 1e-6;
         const Scalar QVarAngVel    = 1e+0;
         const Scalar QVarAccel     = 1e+0;
-        const Scalar QVarGyroBias  = 1e-6;
-        const Scalar QVarAccelBias = 1e-3;
+        const Scalar QVarGyroBias  = 1e-9;
+        const Scalar QVarAccelBias = 1e-9;
 
         Vector<NumStates> Q_diag;
         Q_diag.setZero();

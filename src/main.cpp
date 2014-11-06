@@ -6,6 +6,7 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
+#include <gps_common/GPSFix.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_broadcaster.h>
@@ -43,6 +44,12 @@ class IMUFilterWrapper
 {
     IMUFilter filter_;
     ros::Subscriber sub_imu_;
+    ros::Subscriber sub_gnss_;
+
+    Scalar prev_gnss_update_ = 0.0;
+    Vector3 prev_gnss_vel_;
+
+    mutable DebugPublisher pub_debug_;
     mutable ros::Publisher pub_imu_;
     mutable tf2_ros::TransformBroadcaster pub_tf_;
 
@@ -85,6 +92,11 @@ class IMUFilterWrapper
     void cbImu(const sensor_msgs::Imu& msg)
     {
         const double timestamp = msg.header.stamp.toSec();
+        if (filter_.getTimestamp() >= timestamp)
+        {
+            ROS_WARN_THROTTLE(1, "IMU update from the past [%f sec]", filter_.getTimestamp() - timestamp);
+            return;
+        }
 
         /*
          * Publishing the original IMU transform
@@ -136,11 +148,101 @@ class IMUFilterWrapper
         publishEstimations();
     }
 
+    void cbGnss(const gps_common::GPSFix& msg)
+    {
+        const double timestamp = msg.header.stamp.toSec();
+        if (filter_.getTimestamp() >= timestamp)
+        {
+            ROS_WARN_THROTTLE(1, "GNSS update from the past [%f sec]", filter_.getTimestamp() - timestamp);
+            return;
+        }
+
+        using namespace mathematica;
+
+        /*
+         * Speed vector and covariance - conversion from polar to cartesian
+         */
+        const Scalar gnssTrack = msg.track * Degree;
+        const Scalar gnssSpeed = msg.speed;
+        const Scalar gnssClimb = msg.climb;
+
+        ZUBAX_POSEKF_ENFORCE(Abs(gnssTrack) <= 2.0 * Pi);
+        ZUBAX_POSEKF_ENFORCE(Abs(gnssSpeed) < 515); // sanity check - ~1000 knots (ITAR limit)
+        ZUBAX_POSEKF_ENFORCE(Abs(gnssClimb) < 515);
+
+        const auto vel = List(List(gnssSpeed * Sin(gnssTrack)),  // Lon
+                              List(gnssSpeed * Cos(gnssTrack)),  // Lat
+                              List(gnssClimb));                  // Climb
+        Matrix3 Rvel;
+        {
+            const auto Rpolar = List(List(Power(msg.err_track, 2), 0, 0),  // stdev --> covariance matrix
+                                     List(0, Power(msg.err_speed, 2), 0),
+                                     List(0, 0, Power(msg.err_climb, 2)));
+
+            const auto Gpolar = List(List(gnssSpeed * Cos(gnssTrack), Sin(gnssTrack), 0),
+                                     List(-(gnssSpeed * Sin(gnssTrack)), Cos(gnssTrack), 0),
+                                     List(0, 0, 1));
+
+            Rvel = Gpolar * Rpolar * Gpolar.transpose();
+        }
+
+        /*
+         * Acceleration computation
+         */
+        Vector3 accel;
+        Matrix3 Raccel;
+
+        accel.setZero();
+        Raccel = Matrix3::Identity() * 1e6;
+
+        if (prev_gnss_update_ > 0.0)
+        {
+            const Scalar dt = timestamp - prev_gnss_update_;
+            ZUBAX_POSEKF_ENFORCE(dt > 0);
+
+            accel = (vel - prev_gnss_vel_) / dt;
+
+            const Matrix3 G = Matrix3::Identity() / dt;  // {{1/dt, 0, 0}, {0, 1/dt, 0}, {0, 0, 1/dt}}
+            Raccel = G * Rvel * G.transpose();
+        }
+        else
+        {
+            ROS_INFO("GNSS: First message");
+        }
+        prev_gnss_update_ = timestamp;
+        prev_gnss_vel_ = vel;
+
+        /*
+         * Debugging data
+         */
+        pub_debug_.publish("gnss_vel", vel);
+        pub_debug_.publish("gnss_vel_cov", Rvel);
+        pub_debug_.publish("gnss_accel", accel);
+        pub_debug_.publish("gnss_accel_cov", Raccel);
+
+        /*
+         * Filter update
+         */
+        if (!filter_.isInitialized())
+        {
+            ROS_WARN_THROTTLE(1, "GNSS update skipped - not inited yet");
+            return;
+        }
+
+        filter_.performTimeUpdate(timestamp);
+        filter_.performGnssAccelUpdate(timestamp, accel, Raccel);
+    }
+
 public:
     IMUFilterWrapper(ros::NodeHandle& node, unsigned queue_size = 10)
     {
-        sub_imu_ = node.subscribe("in", queue_size, &IMUFilterWrapper::cbImu, this);
+        sub_imu_  = node.subscribe("imu",  queue_size, &IMUFilterWrapper::cbImu, this);
+        sub_gnss_ = node.subscribe("gnss", queue_size, &IMUFilterWrapper::cbGnss, this);
+
         pub_imu_ = node.advertise<sensor_msgs::Imu>("out", queue_size);
+
+        prev_gnss_vel_.setZero();
+
         ROS_INFO("IMUFilterWrapper inited");
     }
 };

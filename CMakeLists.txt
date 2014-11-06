@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
     roscpp
     sensor_msgs
     std_msgs
+    gps_common
     visualization_msgs
     eigen_conversions
     tf

@@ -48,11 +48,20 @@ simplifiedDeltaQuaternionFromAngularRate[{{wx_},{wy_},{wz_}},dt_] :=
 
 deltaQuaternionFromAngularRate[{{wx_},{wy_},{wz_}},dt_] := quaternionFromEuler[wx dt, wy dt, wz dt]
 
+(*
+ * GNSS conversions
+ *)
+gnssVelocityLonLatClimb[trackRad_, speedMS_, climbMS_] := {
+  {Sin[trackRad] speedMS}, (* Lon *)
+  {Cos[trackRad] speedMS}, (* Lat *)
+  {climbMS}}
 
 
-gravity1 = {{0},{0},{1}};
 
-(* State vector *)
+StdGravity = 9.80665;
+gravity = {{0}, {0}, {StdGravity}};
+
+(* State vector: q wl al bw ba *)
 x = {
  {qw},
  {qx},
@@ -61,16 +70,25 @@ x = {
  {wlx},
  {wly},
  {wlz},
- {bwlx},
- {bwly},
- {bwlz}
+ {alx},
+ {aly},
+ {alz},
+ {bwx},
+ {bwy},
+ {bwz},
+ {bax},
+ {bay},
+ {baz}
 };
+
 q = Quaternion[qw, qx, qy, qz];
 qr = Conjugate[q];
 
 bodyAngVel = {{wlx},{wly},{wlz}};
+bodyAccel = {{alx}, {aly}, {alz}};
 
-bodyGyroBias = {{bwlx}, {bwly}, {bwlz}};
+biasGyro = {{bwx}, {bwy}, {bwz}};
+biasAccel = {{bax}, {bay}, {baz}};
 
 (* Time update *)
 (* TODO: use the approach proposed in "GPS aided INS solution for OpenPilot" *)
@@ -83,19 +101,29 @@ f = {
  {wlx},
  {wly},
  {wlz},
- {bwlx},
- {bwly},
- {bwlz}
+ {alx},
+ {aly},
+ {alz},
+ {bwx},
+ {bwy},
+ {bwz},
+ {bax},
+ {bay},
+ {baz}
 };
 
 F = jacobian[f,x];
 
 (* Accelerometer update *)
-himuacc1 = rotateVectorByQuaternion[gravity1,qr];
-Himuacc1 = jacobian[himuacc1,x];
+hacc = bodyAccel + biasAccel + rotateVectorByQuaternion[gravity, qr];
+Hacc = jacobian[hacc,x];
+
+(* GNSS acceleration update *)
+hgnssacc = rotateVectorByQuaternion[bodyAccel, q];
+Hgnssacc = jacobian[hgnssacc,x];
 
 (* Gyro update *)
-hgyro = bodyAngVel + bodyGyroBias;
+hgyro = bodyAngVel + biasGyro;
 Hgyro = jacobian[hgyro,x];
 
 (*
@@ -106,18 +134,30 @@ Hgyro = jacobian[hgyro,x];
 rpy = eulerFromQuaternion[q];
 QuaternionToEulerCovarianceJacobian = jacobian[rpy, List@@q];
 
+(*
+ * GNSS velocity conversion
+ *)
+gnssVel = gnssVelocityLonLatClimb[gnssTrack, gnssSpeed, gnssClimb];
+GnssVelCovarianceJacobian = jacobian[gnssVel, {gnssTrack, gnssSpeed, gnssClimb}];
 
 
 (* Outputs *)
 Print["x=", x//MatrixForm]
 Print["f=", f//MatrixForm]
 Print["F=", F//MatrixForm]
-Print["himuacc1=", himuacc1//MatrixForm]
-Print["Himuacc1=", Himuacc1//MatrixForm]
+Print["hacc=", hacc//MatrixForm]
+Print["Hacc=", Hacc//MatrixForm]
+Print["hgnssacc=", hgnssacc//MatrixForm]
+Print["Hgnssacc=", Hgnssacc//MatrixForm]
 Print["hgyro=", hgyro//MatrixForm]
 Print["Hgyro=", Hgyro//MatrixForm]
 Print["rpy=", rpy//MatrixForm]
 Print["QuaternionToEulerCovarianceJacobian=", QuaternionToEulerCovarianceJacobian//MatrixForm]
+Print["gnssVel=", gnssVel//MatrixForm]
+Print["GnssVelCovarianceJacobian=", GnssVelCovarianceJacobian//MatrixForm]
+
+
+
 
 
 

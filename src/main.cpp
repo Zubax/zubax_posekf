@@ -85,7 +85,7 @@ class IMUFilterWrapper
         tf.header.stamp = msg.header.stamp;
         tf.child_frame_id = msg.header.frame_id;
         tf.transform.rotation = msg.orientation;
-        tf.transform.translation.z = 0.5;            // Add an offset to improve visualization
+        tf.transform.translation.x = 0.5;            // Add an offset to improve visualization
         pub_tf_.sendTransform(tf);
     }
 
@@ -175,15 +175,21 @@ class IMUFilterWrapper
                               List(gnssClimb));                  // Climb
         Matrix3 Rvel;
         {
-            const auto Rpolar = List(List(Power(msg.err_track, 2), 0, 0),  // stdev --> covariance matrix
+            const Scalar err_track_rad = ((msg.err_track > 0) ? msg.err_track : 30.0) * Degree;
+
+            const auto Rpolar = List(List(Power(err_track_rad, 2), 0, 0),  // stdev --> covariance matrix
                                      List(0, Power(msg.err_speed, 2), 0),
                                      List(0, 0, Power(msg.err_climb, 2)));
+
+            ZUBAX_POSEKF_ENFORCE((Rpolar(0, 0) > 0) && (Rpolar(1, 1) > 0) && (Rpolar(2, 2) > 0));
 
             const auto Gpolar = List(List(gnssSpeed * Cos(gnssTrack), Sin(gnssTrack), 0),
                                      List(-(gnssSpeed * Sin(gnssTrack)), Cos(gnssTrack), 0),
                                      List(0, 0, 1));
 
             Rvel = Gpolar * Rpolar * Gpolar.transpose();
+
+            ZUBAX_POSEKF_ENFORCE((Rvel(0, 0) > 0) && (Rvel(1, 1) > 0) && (Rvel(2, 2) > 0));
         }
 
         /*

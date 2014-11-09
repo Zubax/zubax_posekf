@@ -269,7 +269,9 @@ public:
         x_[2] = orientation.y();
         x_[3] = orientation.z();
 
-        P_ = decltype(P_)::Identity() * 100.0;
+        P_ = decltype(P_)::Identity() * 1e3;
+        P_.block<6, 6>(4, 4) = Matrix<6, 6>::Identity() * 1e-1;
+        P_.block<6, 6>(10, 10) = Matrix<6, 6>::Identity() * 1e-3;
 
         normalizeAndCheck();
 

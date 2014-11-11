@@ -131,14 +131,13 @@ Hgyro = jacobian[hgyro,x];
  * Ref. "Development of a Real-Time Attitude System Using a Quaternion
  * Parameterization and Non-Dedicated GPS Receivers" - John B. Schleppe (page 69)
  *)
-rpy = eulerFromQuaternion[q];
-QuaternionToEulerCovarianceJacobian = jacobian[rpy, List@@q];
+eulerFromQuaternionJacobian = jacobian[eulerFromQuaternion[q], List@@q];
 
 (*
  * GNSS velocity conversion
  *)
-gnssVel = gnssVelocityLonLatClimb[gnssTrack, gnssSpeed, gnssClimb];
-GnssVelCovarianceJacobian = jacobian[gnssVel, {gnssTrack, gnssSpeed, gnssClimb}];
+gnssVelocityLonLatClimbJacobian =
+ jacobian[gnssVelocityLonLatClimb[gnssTrack, gnssSpeed, gnssClimb], {gnssTrack, gnssSpeed, gnssClimb}];
 
 
 (* Outputs *)
@@ -151,10 +150,11 @@ Print["hgnssacc=", hgnssacc//MatrixForm]
 Print["Hgnssacc=", Hgnssacc//MatrixForm]
 Print["hgyro=", hgyro//MatrixForm]
 Print["Hgyro=", Hgyro//MatrixForm]
-Print["rpy=", rpy//MatrixForm]
-Print["QuaternionToEulerCovarianceJacobian=", QuaternionToEulerCovarianceJacobian//MatrixForm]
-Print["gnssVel=", gnssVel//MatrixForm]
-Print["GnssVelCovarianceJacobian=", GnssVelCovarianceJacobian//MatrixForm]
+Print["eulerFromQuaternionJacobian=", eulerFromQuaternionJacobian//MatrixForm]
+Print["gnssVelocityLonLatClimbJacobian=", gnssVelocityLonLatClimbJacobian//MatrixForm]
+
+
+
 
 
 

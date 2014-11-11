@@ -2,10 +2,12 @@
 
 <<Quaternions`;
 
-jacobian[ff_, dd_]:=D[Flatten[ff], {Flatten[dd]}]
+jacobian[ff_, dd_] := D[Flatten[ff], {Flatten[dd]}]
 
 rotateVectorByQuaternion[{{x_}, {y_}, {z_}}, q_] :=
   {Drop[List @@ (q ** Quaternion[0, x, y, z] ** Conjugate[q]), 1]}\[Transpose]
+
+quaternionAsColumnVector[q_] := {List @@ q}\[Transpose]
 
 (*
  * Ref. ROS Python TF API module

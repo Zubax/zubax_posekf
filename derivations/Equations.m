@@ -8,77 +8,48 @@ ClearAll["Global`*"];
 StdGravity = 9.80665;
 gravity = {{0}, {0}, {StdGravity}};
 
-(* State vector: q wl al bw ba *)
-x = {
- {qw},
- {qx},
- {qy},
- {qz},
- {wlx},
- {wly},
- {wlz},
- {alx},
- {aly},
- {alz},
- {bwx},
- {bwy},
- {bwz},
- {bax},
- {bay},
- {baz}
-};
+(* State variables *)
+pwi = {{pwix}, {pwiy}, {pwiz}}; (* position *)
+vwi = {{vwix}, {vwiy}, {vwiz}}; (* velocity *)
+qwi = Quaternion[qwiw, qwix, qwiy, qwiz]; (* world --> IMU rotation *)
+a   = {{ax}, {ay}, {az}}; (* acceleration *)
+w   = {{wx}, {wy}, {wz}}; (* angular velocity *)
+ba  = {{bax}, {bay}, {baz}}; (* accelerometer bias *)
+bw  = {{bwx}, {bwy}, {bwz}}; (* rate gyro bias *)
+pvw = {{pvwx}, {pvwy}, {pvwz}}; (* visual --> world translation *)
+qvw = Quaternion[qvww, qvwx, qvwy, qvwz]; (* visual --> world rotation *)
 
-q = Quaternion[qw, qx, qy, qz];
-qr = Conjugate[q];
+(* State vector *)
+x = Join[
+ pwi, (* 1 *)
+ vwi, (* 4 *)
+ quaternionAsColumnVector[qwi], (* 7 *)
+ a, (* 11 *)
+ w, (* 14 *)
+ ba, (* 17 *)
+ bw, (* 20 *)
+ pvw,(* 23 *)
+ quaternionAsColumnVector[qvw]]; (* 26 *)
 
-bodyAngVel = {{wlx},{wly},{wlz}};
-bodyAccel = {{alx}, {aly}, {alz}};
-
-biasGyro = {{bwx}, {bwy}, {bwz}};
-biasAccel = {{bax}, {bay}, {baz}};
-
-(* Time update *)
-(* TODO: use the approach proposed in "GPS aided INS solution for OpenPilot" *)
-newq = q ** simplifiedDeltaQuaternionFromAngularRate[bodyAngVel, dtf];
-f = {
- {newq[[1]]},
- {newq[[2]]},
- {newq[[3]]},
- {newq[[4]]},
- {wlx},
- {wly},
- {wlz},
- {alx},
- {aly},
- {alz},
- {bwx},
- {bwy},
- {bwz},
- {bax},
- {bay},
- {baz}
-};
-
+(* Time update: f(x, dt) *)
+f = x;
+f[[1;;10]] = Join[
+ pwi + dt vwi + dt dt rotateVectorByQuaternion[gravity, Conjugate[qwi]],
+ vwi + dt rotateVectorByQuaternion[gravity, Conjugate[qwi]],
+ quaternionAsColumnVector[qwi ** simplifiedDeltaQuaternionFromAngularRate[w, dt]]];
 F = jacobian[f,x];
 
-(* Accelerometer update *)
-hacc = bodyAccel + biasAccel + rotateVectorByQuaternion[gravity, qr];
-Hacc = jacobian[hacc,x];
+(*
+ * Measurement update equations: h(x)
+ *)
 
-(* GNSS acceleration update *)
-hgnssacc = rotateVectorByQuaternion[bodyAccel, q];
-Hgnssacc = jacobian[hgnssacc,x];
-
-(* Gyro update *)
-hgyro = bodyAngVel + biasGyro;
-Hgyro = jacobian[hgyro,x];
 
 (*
  * Quaternion covariance to Euler covariance
  * Ref. "Development of a Real-Time Attitude System Using a Quaternion
  * Parameterization and Non-Dedicated GPS Receivers" - John B. Schleppe (page 69)
  *)
-eulerFromQuaternionJacobian = jacobian[eulerFromQuaternion[q], List@@q];
+eulerFromQuaternionJacobian = jacobian[eulerFromQuaternion[qwi], List@@qwi];
 
 (*
  * GNSS velocity conversion
@@ -91,12 +62,7 @@ gnssVelocityLonLatClimbJacobian =
 Print["x=", x//MatrixForm]
 Print["f=", f//MatrixForm]
 Print["F=", F//MatrixForm]
-Print["hacc=", hacc//MatrixForm]
-Print["Hacc=", Hacc//MatrixForm]
-Print["hgnssacc=", hgnssacc//MatrixForm]
-Print["Hgnssacc=", Hgnssacc//MatrixForm]
-Print["hgyro=", hgyro//MatrixForm]
-Print["Hgyro=", Hgyro//MatrixForm]
+
 Print["eulerFromQuaternionJacobian=", eulerFromQuaternionJacobian//MatrixForm]
 Print["gnssVelocityLonLatClimbJacobian=", gnssVelocityLonLatClimbJacobian//MatrixForm]
 

@@ -33,6 +33,7 @@ f[[1;;10]] = Join[
  vwi + dt rotateVectorByQuaternion[gravity, Conjugate[qwi]],
  quaternionAsColumnVector[qwi ** simplifiedDeltaQuaternionFromAngularRate[w, dt]]];
 F = jacobian[f,x];
+f[[7;;10]] = quaternionAsColumnVector[qwi ** deltaQuaternionFromAngularRate[w, dt]];
 
 printMatrixByName /@ {"f", "F"};
 

@@ -8,32 +8,25 @@ ClearAll["Global`*"];
 StdGravity = 9.80665;
 gravity = {{0}, {0}, {StdGravity}};
 
-(* State variables *)
-pwi = {{pwix}, {pwiy}, {pwiz}}; (* position *)
-vwi = {{vwix}, {vwiy}, {vwiz}}; (* velocity *)
-qwi = Quaternion[qwiw, qwix, qwiy, qwiz]; (* world --> IMU rotation *)
-a   = {{ax}, {ay}, {az}}; (* acceleration *)
-w   = {{wx}, {wy}, {wz}}; (* angular velocity *)
-ba  = {{bax}, {bay}, {baz}}; (* accelerometer bias *)
-bw  = {{bwx}, {bwy}, {bwz}}; (* rate gyro bias *)
-pvw = {{pvwx}, {pvwy}, {pvwz}}; (* visual --> world translation *)
-qvw = Quaternion[qvww, qvwx, qvwy, qvwz]; (* visual --> world rotation *)
-
-(* State vector *)
+(*
+ * State vector
+ *)
 x = Join[
- pwi, (* 1 *)
- vwi, (* 4 *)
- quaternionAsColumnVector[qwi], (* 7 *)
- a, (* 11 *)
- w, (* 14 *)
- ba, (* 17 *)
- bw, (* 20 *)
- pvw,(* 23 *)
- quaternionAsColumnVector[qvw]]; (* 26 *)
+ defineSymbolicColumnVectorXYZ[pwi], (* 1, position *)
+ defineSymbolicColumnVectorXYZ[vwi], (* 4, velocity *)
+ quaternionAsColumnVector[defineSymbolicQuaternion[qwi]], (* 7, world --> IMU rotation *)
+ defineSymbolicColumnVectorXYZ[a], (* 11, acceleration *)
+ defineSymbolicColumnVectorXYZ[w], (* 14, angular velocity *)
+ defineSymbolicColumnVectorXYZ[ba], (* 17, accelerometer bias *)
+ defineSymbolicColumnVectorXYZ[bw], (* 20, rate gyro bias *)
+ defineSymbolicColumnVectorXYZ[pvw],(* 23, visual --> world translation *)
+ quaternionAsColumnVector[defineSymbolicQuaternion[qvw]]]; (* 26, visual --> world rotation *)
 
 printMatrixByName["x"]
 
-(* Time update: f(x, dt) *)
+(*
+ * Time update: f(x, dt)
+ *)
 f = x;
 f[[1;;10]] = Join[
  pwi + dt vwi + dt dt rotateVectorByQuaternion[gravity, Conjugate[qwi]],

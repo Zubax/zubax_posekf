@@ -60,3 +60,15 @@ gnssVelocityLonLatClimb[trackRad_, speedMS_, climbMS_] := {
   {climbMS}}
 
 printMatrixByName[name_] := Print[name, "=", MatrixForm[Symbol[name]]]
+
+(*
+ * Symbolic helpers
+ *)
+symbolicVector[name_, components_] := Table[Symbol[ToString[name] <> ToString[m]], {m, components}]
+
+symbolicQuaternion[name_] := Quaternion @@ symbolicVector[ToString[name], {"w", "x", "y", "z"}]
+
+defineSymbolicColumnVectorXYZ[sym_] :=
+ Set[Evaluate[Symbol[ToString[sym]]], {symbolicVector[ToString[sym], {"x", "y", "z"}]}\[Transpose]]
+
+defineSymbolicQuaternion[sym_] := Set[Evaluate[Symbol[ToString[sym]]], symbolicQuaternion[ToString[sym]]]

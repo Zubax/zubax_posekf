@@ -58,3 +58,5 @@ gnssVelocityLonLatClimb[trackRad_, speedMS_, climbMS_] := {
   {Sin[trackRad] speedMS}, (* Lon *)
   {Cos[trackRad] speedMS}, (* Lat *)
   {climbMS}}
+
+printMatrixByName[name_] := Print[name, "=", MatrixForm[Symbol[name]]]

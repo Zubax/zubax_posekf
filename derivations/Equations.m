@@ -31,6 +31,8 @@ x = Join[
  pvw,(* 23 *)
  quaternionAsColumnVector[qvw]]; (* 26 *)
 
+printMatrixByName["x"]
+
 (* Time update: f(x, dt) *)
 f = x;
 f[[1;;10]] = Join[
@@ -39,9 +41,29 @@ f[[1;;10]] = Join[
  quaternionAsColumnVector[qwi ** simplifiedDeltaQuaternionFromAngularRate[w, dt]]];
 F = jacobian[f,x];
 
+printMatrixByName /@ {"f", "F"};
+
 (*
  * Measurement update equations: h(x)
  *)
+makeMeasurementPrediction[name_, equation_] := {
+  Set[Evaluate[Symbol["Global`h" <> ToString[name]]], FullSimplify[equation]],
+  Set[Evaluate[Symbol["Global`H" <> ToString[name]]], FullSimplify[jacobian[equation, x]]]}
+
+makeMeasurementPrediction["acc", a + ba + rotateVectorByQuaternion[gravity, qwi]];
+makeMeasurementPrediction["gyro", w + bw];
+printMatrixByName /@ {"hacc", "Hacc", "hgyro", "Hgyro"};
+
+makeMeasurementPrediction["gnsspos", pwi];
+makeMeasurementPrediction["gnssvel", vwi];
+printMatrixByName /@ {"hgnsspos", "Hgnsspos", "hgnssvel", "Hgnssvel"};
+
+makeMeasurementPrediction["vispos", rotateVectorByQuaternion[pwi + pvw, qwi ** qvw]];
+makeMeasurementPrediction["visatt", quaternionAsColumnVector[qwi ** qvw]];
+printMatrixByName /@ {"hvispos", "Hvispos", "hvisatt", "Hvisatt"};
+
+makeMeasurementPrediction["climbrate", vwi[[3]]];
+printMatrixByName /@ {"hclimbrate", "Hclimbrate"};
 
 
 (*
@@ -49,23 +71,15 @@ F = jacobian[f,x];
  * Ref. "Development of a Real-Time Attitude System Using a Quaternion
  * Parameterization and Non-Dedicated GPS Receivers" - John B. Schleppe (page 69)
  *)
-eulerFromQuaternionJacobian = jacobian[eulerFromQuaternion[qwi], List@@qwi];
+eulerFromQuaternionJacobian = jacobian[eulerFromQuaternion[qwi], List @@ qwi];
+printMatrixByName["eulerFromQuaternionJacobian"];
 
 (*
  * GNSS velocity conversion
  *)
 gnssVelocityLonLatClimbJacobian =
  jacobian[gnssVelocityLonLatClimb[gnssTrack, gnssSpeed, gnssClimb], {gnssTrack, gnssSpeed, gnssClimb}];
-
-
-(* Outputs *)
-Print["x=", x//MatrixForm]
-Print["f=", f//MatrixForm]
-Print["F=", F//MatrixForm]
-
-Print["eulerFromQuaternionJacobian=", eulerFromQuaternionJacobian//MatrixForm]
-Print["gnssVelocityLonLatClimbJacobian=", gnssVelocityLonLatClimbJacobian//MatrixForm]
-
+printMatrixByName["gnssVelocityLonLatClimbJacobian"];
 
 
 

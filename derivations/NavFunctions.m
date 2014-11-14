@@ -47,10 +47,10 @@ eulerFromQuaternion[q_] :=
  *)
 simplifiedQuaternionFromEuler[ai_, aj_, ak_] := Quaternion[1, ai/2, aj/2, ak/2]
 
-simplifiedDeltaQuaternionFromAngularRate[{{wx_},{wy_},{wz_}},dt_] :=
-  simplifiedQuaternionFromEuler[wx dt, wy dt, wz dt]
+simplifiedDeltaQuaternionFromAngularRate[{{wx$_},{wy$_},{wz$_}},dt$_] :=
+  simplifiedQuaternionFromEuler[wx$ dt$, wy$ dt$, wz$ dt$]
 
-deltaQuaternionFromAngularRate[{{wx_},{wy_},{wz_}},dt_] := quaternionFromEuler[wx dt, wy dt, wz dt]
+deltaQuaternionFromAngularRate[{{wx$_},{wy$_},{wz$_}},dt$_] := quaternionFromEuler[wx$ dt$, wy$ dt$, wz$ dt$]
 
 (*
  * GNSS velocity vector from track, horizontal speed and climb rate.

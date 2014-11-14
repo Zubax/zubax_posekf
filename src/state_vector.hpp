@@ -18,8 +18,8 @@ struct StateVector
 
     Vector<Size> x;
 
-    <* Riffle["Scalar& " <> ToString[#1] <> " = x[" <> ToString[#2] <> "];" &
-              @@@ Transpose[{Flatten[x], Range[0, Length[x] - 1]}], "\n    "] // StringJoin
+    <* Riffle["Scalar& " <> ToString[#1] <> " = x[" <> ToString[#2] <>
+           "];" & @@@ Transpose[{Flatten[x], Range[0, Length[x] - 1]}], "\n    "] // StringJoin
     *>
 
     StateVector()
@@ -36,6 +36,11 @@ struct StateVector
     {
         <* generateCPPReturnExpressionWithCSE[F, "        "] *>
     }
+
+    <* Riffle[generateCPPGetterForSymbol /@
+         Select[Names["X`*"], (Symbol[#][[0]] === List || Symbol[#][[0]] == Quaternion) &],
+        "\n\n    "] // StringJoin
+    *>
 
     <* Riffle[generateCPPGetterForSymbol /@ Names["H`*"], "\n\n    "] // StringJoin
     *>

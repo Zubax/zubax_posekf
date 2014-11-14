@@ -10,7 +10,7 @@
 #include <eigen_conversions/eigen_msg.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_broadcaster.h>
-#include "imu_filter.hpp"
+#include "filter.hpp"
 #include "linear_algebra.hpp"
 #include "exception.hpp"
 

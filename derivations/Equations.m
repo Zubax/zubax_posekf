@@ -57,7 +57,7 @@ makeMeasurementPrediction["vispos", rotateVectorByQuaternion[pwi + pvw, qwi ** q
 makeMeasurementPrediction["visatt", quaternionAsColumnVector[qwi ** qvw]];
 printMatrixByName /@ {"hvispos", "Hvispos", "hvisatt", "Hvisatt"};
 
-makeMeasurementPrediction["climbrate", vwi[[3]]];
+makeMeasurementPrediction["climbrate", {vwi[[3]]}];
 printMatrixByName /@ {"hclimbrate", "Hclimbrate"};
 
 
@@ -80,6 +80,9 @@ printMatrixByName["gnssVelocityLonLatClimbJacobian"];
 
 srcdir = FileNameJoin[{NotebookDirectory[], "..", "src"}];
 expandTemplateFiles[srcdir, {"*.cpp", "*.cc", "*.hpp", "*.h"}]
+
+
+
 
 
 

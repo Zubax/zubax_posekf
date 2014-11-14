@@ -12,113 +12,11 @@
 #include <cmath>
 #include "mathematica.hpp"
 #include "debug_publisher.hpp"
-
-#define ZUBAX_POSEKF_STRINGIZE2(x)      #x
-#define ZUBAX_POSEKF_STRINGIZE(x)       ZUBAX_POSEKF_STRINGIZE2(x)
-#define ZUBAX_POSEKF_MAKE_ERROR_MSG(x)  (__FILE__ ":" ZUBAX_POSEKF_STRINGIZE(__LINE__) ": " #x)
-#define ZUBAX_POSEKF_ENFORCE(x)                                                 \
-    if (!(x)) {                                                                 \
-        ROS_ERROR(ZUBAX_POSEKF_MAKE_ERROR_MSG(x));                              \
-        throw ::zubax_posekf::FilterException(ZUBAX_POSEKF_MAKE_ERROR_MSG(x));  \
-    }
+#include "linear_algebra.hpp"
+#include "exception.hpp"
 
 namespace zubax_posekf
 {
-
-using Scalar = double;
-using Quaternion = Eigen::Quaternion<Scalar>;
-template <int Rows, int Cols> using Matrix = Eigen::Matrix<Scalar, Rows, Cols>;
-template <int Size> using Vector = Matrix<Size, 1>;
-using Vector3 = Vector<3>;
-using Matrix3 = Matrix<3, 3>;
-using Matrix4 = Matrix<4, 4>;
-
-class FilterException : std::runtime_error
-{
-public:
-    FilterException(const std::string& text) : std::runtime_error(text) { }
-};
-
-inline Quaternion quaternionFromEuler(const Vector3& roll_pitch_yaw)
-{
-    const Scalar ai = roll_pitch_yaw[0];
-    const Scalar aj = roll_pitch_yaw[1];
-    const Scalar ak = roll_pitch_yaw[2];
-
-    const Scalar ci = std::cos(ai / 2.0);
-    const Scalar si = std::sin(ai / 2.0);
-    const Scalar cj = std::cos(aj / 2.0);
-    const Scalar sj = std::sin(aj / 2.0);
-    const Scalar ck = std::cos(ak / 2.0);
-    const Scalar sk = std::sin(ak / 2.0);
-
-    const Scalar cc = ci * ck;
-    const Scalar cs = ci * sk;
-    const Scalar sc = si * ck;
-    const Scalar ss = si * sk;
-
-    return Quaternion(
-        cj * cc + sj * ss,   // w
-        cj * sc - sj * cs,   // x
-        cj * ss + sj * cc,   // y
-        cj * cs - sj * sc);  // z
-}
-
-inline Vector3 quaternionToEuler(const Quaternion& q)
-{
-    return q.toRotationMatrix().eulerAngles(0, 1, 2);
-}
-
-inline Quaternion computeDeltaQuaternion(const Quaternion& from, const Quaternion& to)
-{
-    return to.normalized() * from.inverse();
-}
-
-template <typename Value, typename Min, typename Max>
-inline bool checkRangeAndConstrain(Value& inout_value, const Min& min, const Max& max)
-{
-    ROS_ASSERT(min < max);
-    if (inout_value < min)
-    {
-        inout_value = min;
-        return false;
-    }
-    if (inout_value > max)
-    {
-        inout_value = max;
-        return false;
-    }
-    return true;
-}
-
-template <typename Value, typename Limit>
-inline bool checkRangeAndConstrainSymmetric(Value& inout_value, const Limit& limit)
-{
-    const auto abs_limit = std::abs(limit);
-    return checkRangeAndConstrain(inout_value, -abs_limit, abs_limit);
-}
-
-template <typename Scalar, int Size, int Options>
-inline bool validateAndFixCovarianceMatrix(Eigen::Matrix<Scalar, Size, Size, Options>& matrix,
-                                           const Scalar& covariance_abs_limit, const Scalar& min_variance)
-{
-    bool retval = true;
-    Scalar* const ptr = matrix.data();
-
-    ROS_ASSERT(ptr != nullptr);
-    ROS_ASSERT(covariance_abs_limit > 0);
-    ROS_ASSERT(min_variance > 0);
-
-    for (int i = 0; i < (Size * Size); i++)
-    {
-        const bool on_diagonal = (i / Size) == (i % Size);
-        const Scalar min = on_diagonal ? min_variance : -covariance_abs_limit;
-        retval = checkRangeAndConstrain(ptr[i], min, covariance_abs_limit) ? retval : false;
-    }
-
-    matrix = 0.5 * (matrix + matrix.transpose());  // Make sure the matrix stays symmetric
-    return retval;
-}
 
 class IMUFilter
 {
@@ -189,11 +87,8 @@ class IMUFilter
         debug_pub_.publish("P", P_);
         debug_pub_.publish("Q", Q_);
 
-        ZUBAX_POSEKF_ENFORCE(std::isfinite(x_.sum()));
-        ZUBAX_POSEKF_ENFORCE(std::isfinite(P_.sum()));
-        ZUBAX_POSEKF_ENFORCE(std::isfinite(Q_.sum()));
-
-        ZUBAX_POSEKF_ENFORCE(std::isfinite(state_timestamp_) && (state_timestamp_ > 0.0));
+        enforce("Non-finite states", std::isfinite(x_.sum()) && std::isfinite(P_.sum()) && std::isfinite(Q_.sum()));
+        enforce("Invalid timestamp", std::isfinite(state_timestamp_) && (state_timestamp_ > 0.0));
     }
 
     template <int NumDims>
@@ -214,7 +109,7 @@ class IMUFilter
             const Matrix<NumDims, NumDims> S = H * P_ * H.transpose() + R_sym;
             bool s_is_invertible = false;
             S.computeInverseWithCheck(S_inv, s_is_invertible);
-            ZUBAX_POSEKF_ENFORCE(s_is_invertible);
+            enforce("S is not invertible", s_is_invertible);
         }
 
         const auto K = static_cast<Matrix<NumStates, NumDims> >(P_ * H.transpose() * S_inv);
@@ -349,7 +244,7 @@ public:
 
     void performAccelUpdate(Scalar timestamp, const Vector3& accel, const Matrix3& cov)
     {
-        ZUBAX_POSEKF_ENFORCE(cov.norm() > 0);
+        enforce("Accel R", cov.norm() > 0);
 
         const Scalar qw = x_[0];
         const Scalar qx = x_[1];
@@ -383,7 +278,7 @@ public:
 
     void performGnssAccelUpdate(Scalar timestamp, const Vector3& accel, const Matrix3& cov)
     {
-        ZUBAX_POSEKF_ENFORCE(cov.norm() > 0);
+        enforce("GNSS accel R", cov.norm() > 0);
 
         const Scalar qw = x_[0];
         const Scalar qx = x_[1];
@@ -431,7 +326,7 @@ public:
 
     void performGyroUpdate(Scalar timestamp, const Vector3& angvel, const Matrix3& cov)
     {
-        ZUBAX_POSEKF_ENFORCE(cov.norm() > 0);
+        enforce("Gyro R", cov.norm() > 0);
 
         const Scalar wlx = x_[4];
         const Scalar wly = x_[5];

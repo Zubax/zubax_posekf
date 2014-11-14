@@ -11,6 +11,8 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include "imu_filter.hpp"
+#include "linear_algebra.hpp"
+#include "exception.hpp"
 
 namespace zubax_posekf
 {
@@ -166,9 +168,7 @@ class IMUFilterWrapper
         const Scalar gnssSpeed = msg.speed;
         const Scalar gnssClimb = msg.climb;
 
-        ZUBAX_POSEKF_ENFORCE(Abs(gnssTrack) <= 2.0 * Pi);
-        ZUBAX_POSEKF_ENFORCE(Abs(gnssSpeed) < 515); // sanity check - ~1000 knots (ITAR limit)
-        ZUBAX_POSEKF_ENFORCE(Abs(gnssClimb) < 515);
+        enforce("GNSS data", (Abs(gnssTrack) <= 2.0 * Pi) && (Abs(gnssSpeed) < 515) && (Abs(gnssClimb) < 515));
 
         const auto vel = List(List(gnssSpeed * Sin(gnssTrack)),  // Lon
                               List(gnssSpeed * Cos(gnssTrack)),  // Lat
@@ -181,7 +181,7 @@ class IMUFilterWrapper
                                      List(0, Power(msg.err_speed, 2), 0),
                                      List(0, 0, Power(msg.err_climb, 2)));
 
-            ZUBAX_POSEKF_ENFORCE((Rpolar(0, 0) > 0) && (Rpolar(1, 1) > 0) && (Rpolar(2, 2) > 0));
+            enforce("GNSS R polar", (Rpolar(0, 0) > 0) && (Rpolar(1, 1) > 0) && (Rpolar(2, 2) > 0));
 
             const auto Gpolar = List(List(gnssSpeed * Cos(gnssTrack), Sin(gnssTrack), 0),
                                      List(-(gnssSpeed * Sin(gnssTrack)), Cos(gnssTrack), 0),
@@ -189,7 +189,7 @@ class IMUFilterWrapper
 
             Rvel = Gpolar * Rpolar * Gpolar.transpose();
 
-            ZUBAX_POSEKF_ENFORCE((Rvel(0, 0) > 0) && (Rvel(1, 1) > 0) && (Rvel(2, 2) > 0));
+            enforce("GNSS R vel", (Rvel(0, 0) > 0) && (Rvel(1, 1) > 0) && (Rvel(2, 2) > 0));
         }
 
         /*
@@ -204,7 +204,7 @@ class IMUFilterWrapper
         if (prev_gnss_update_ > 0.0)
         {
             const Scalar dt = timestamp - prev_gnss_update_;
-            ZUBAX_POSEKF_ENFORCE(dt > 0);
+            enforce("Non-positive dt", dt > 0);
 
             accel = (vel - prev_gnss_vel_) / dt;
 

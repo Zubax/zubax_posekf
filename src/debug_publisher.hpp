@@ -1,5 +1,7 @@
 /*
- * Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
+ * Copyright (c) 2014 Zubax, zubax.com
+ * Please refer to the file LICENSE for terms and conditions.
+ * Author: Pavel Kirienko <pavel.kirienko@zubax.com>
  */
 
 #pragma once

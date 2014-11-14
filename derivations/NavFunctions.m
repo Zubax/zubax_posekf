@@ -73,3 +73,7 @@ defineSymbolicColumnVectorXYZ[sym_] :=
  Set[Evaluate[Symbol[ToString[sym]]], {symbolicVector[ToString[sym], {"x", "y", "z"}]}\[Transpose]]
 
 defineSymbolicQuaternion[sym_] := Set[Evaluate[Symbol[ToString[sym]]], symbolicQuaternion[ToString[sym]]]
+
+normalizeQuaternion[q_] := Block[{elems = List @@ q, norm},
+  norm = Sqrt@Total[Power[#, 2] & /@ elems];
+  Quaternion @@ (elems/norm)]

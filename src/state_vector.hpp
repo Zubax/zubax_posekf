@@ -27,6 +27,12 @@ struct StateVector
         x.setZero();
     }
 
+    void normalize()
+    {
+        <* generateCPPExpressionWithCSE["normx", normx, "        "] *>
+        x = normx;
+    }
+
     Matrix<Size, 1> f(double dt) const
     {
         <* generateCPPReturnExpressionWithCSE[f, "        "] *>

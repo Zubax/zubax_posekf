@@ -44,6 +44,15 @@ f[[7;;10]] = quaternionAsColumnVector[qwi ** deltaQuaternionFromAngularRate[w, d
 printMatrixByName /@ {"f", "F"};
 
 (*
+ * State vector normalization
+ *)
+normx = x;
+normx[[7;;10]] = quaternionAsColumnVector[normalizeQuaternion[qwi]];
+normx[[26;;29]] = quaternionAsColumnVector[normalizeQuaternion[qvw]];
+
+printMatrixByName /@ {"normx"};
+
+(*
  * Measurement update equations: h(x)
  *)
 makeMeasurementPrediction[name_, equation_] := {
@@ -83,6 +92,3 @@ printMatrixByName["gnssVelocityLonLatClimbJacobian"];
 
 srcdir = FileNameJoin[{NotebookDirectory[], "..", "src"}];
 expandTemplateFiles[srcdir, {"*.cpp", "*.cc", "*.hpp", "*.h"}]
-
-
-

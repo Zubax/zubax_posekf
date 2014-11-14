@@ -106,6 +106,9 @@ template <typename T> inline decltype(std::sinh(T())) Sinh(T x) { return std::si
 template <typename T> inline decltype(std::cosh(T())) Cosh(T x) { return std::cosh(x); }
 template <typename T> inline decltype(std::tanh(T())) Tanh(T x) { return std::tanh(x); }
 
+template <typename Scalar, int Options>
+inline Scalar Norm(const Eigen::Quaternion<Scalar, Options>& x) { return x.norm(); }
+
 /**
  * Mathematica constants
  */

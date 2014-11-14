@@ -65,4 +65,10 @@ generateCPPMatrixType[symbol_, templateName_: "Matrix"] :=
 generateCPPGetterForSymbol[symbolName_String, indent_: "    "] :=
  Module[{indent2 = indent <> indent, symbol = Symbol[symbolName]},
   generateCPPMatrixType[symbol] <> " " <> symbolName <> "() const\n" <> indent <> "{\n" <> indent2 <>
-   generateCPPReturnExpressionWithCSE[symbol, indent2] <> "\n" <> indent <> "}"]
+   generateCPPReturnExpressionWithCSE[symbol, indent2] <> "\n" <> indent <> "}"] /; ListQ[Symbol[symbolName]]
+
+generateCPPGetterForSymbol[symbolName_String, indent_: "    "] :=
+ Module[{indent2 = indent <> indent},
+  "Quaternion " <> symbolName <> "() const\n" <> indent <> "{\n" <> indent2 <>
+   generateCPPReturnExpressionWithCSE[Symbol[symbolName], indent2] <> "\n" <> indent <> "}"] /;
+    Symbol[symbolName][[0]] === Quaternion

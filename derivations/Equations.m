@@ -1,6 +1,11 @@
 (* ::Package:: *)
 
 ClearAll["Global`*"];
+ClearAll["X`*"];
+ClearAll["H`*"];
+$ContextPath = Prepend[$ContextPath, "X`"];
+$ContextPath = Prepend[$ContextPath, "H`"];
+$ContextPath = $ContextPath // DeleteDuplicates
 <<NavFunctions`;
 <<Quaternions`;
 <<CPPCodeGeneration`;
@@ -13,15 +18,15 @@ gravity = {{0}, {0}, {StdGravity}};
  * State vector
  *)
 x = Join[
- defineSymbolicColumnVectorXYZ[pwi], (* 1, position *)
- defineSymbolicColumnVectorXYZ[vwi], (* 4, velocity *)
- quaternionAsColumnVector[defineSymbolicQuaternion[qwi]], (* 7, world --> IMU rotation *)
- defineSymbolicColumnVectorXYZ[a], (* 11, acceleration *)
- defineSymbolicColumnVectorXYZ[w], (* 14, angular velocity *)
- defineSymbolicColumnVectorXYZ[ba], (* 17, accelerometer bias *)
- defineSymbolicColumnVectorXYZ[bw], (* 20, rate gyro bias *)
- defineSymbolicColumnVectorXYZ[pvw],(* 23, visual --> world translation *)
- quaternionAsColumnVector[defineSymbolicQuaternion[qvw]]]; (* 26, visual --> world rotation *)
+ defineSymbolicColumnVectorXYZ["X`pwi"], (* 1, position *)
+ defineSymbolicColumnVectorXYZ["X`vwi"], (* 4, velocity *)
+ quaternionAsColumnVector[defineSymbolicQuaternion["X`qwi"]], (* 7, world --> IMU rotation *)
+ defineSymbolicColumnVectorXYZ["X`a"], (* 11, acceleration *)
+ defineSymbolicColumnVectorXYZ["X`w"], (* 14, angular velocity *)
+ defineSymbolicColumnVectorXYZ["X`ba"], (* 17, accelerometer bias *)
+ defineSymbolicColumnVectorXYZ["X`bw"], (* 20, rate gyro bias *)
+ defineSymbolicColumnVectorXYZ["X`pvw"],(* 23, visual --> world translation *)
+ quaternionAsColumnVector[defineSymbolicQuaternion["X`qvw"]]]; (* 26, visual --> world rotation *)
 
 printMatrixByName["x"]
 
@@ -42,23 +47,21 @@ printMatrixByName /@ {"f", "F"};
  * Measurement update equations: h(x)
  *)
 makeMeasurementPrediction[name_, equation_] := {
-  Set[Evaluate[Symbol["Global`h" <> ToString[name]]], equation],
-  Set[Evaluate[Symbol["Global`H" <> ToString[name]]], jacobian[equation, x]]}
+  Set[Evaluate[Symbol["H`h" <> ToString[name]]], equation],
+  Set[Evaluate[Symbol["H`H" <> ToString[name]]], jacobian[equation, x]]}
 
 makeMeasurementPrediction["acc", a + ba + rotateVectorByQuaternion[gravity, qwi]];
 makeMeasurementPrediction["gyro", w + bw];
-printMatrixByName /@ {"hacc", "Hacc", "hgyro", "Hgyro"};
 
 makeMeasurementPrediction["gnsspos", pwi];
 makeMeasurementPrediction["gnssvel", vwi];
-printMatrixByName /@ {"hgnsspos", "Hgnsspos", "hgnssvel", "Hgnssvel"};
 
 makeMeasurementPrediction["vispos", rotateVectorByQuaternion[pwi + pvw, qwi ** qvw]];
-makeMeasurementPrediction["visatt", quaternionAsColumnVector[qwi ** qvw]];
-printMatrixByName /@ {"hvispos", "Hvispos", "hvisatt", "Hvisatt"};
+makeMeasurementPrediction["visatt", qwi ** qvw];
 
 makeMeasurementPrediction["climbrate", {vwi[[3]]}];
-printMatrixByName /@ {"hclimbrate", "Hclimbrate"};
+
+printMatrixByName /@ Names["H`*"];
 
 
 (*
@@ -80,9 +83,6 @@ printMatrixByName["gnssVelocityLonLatClimbJacobian"];
 
 srcdir = FileNameJoin[{NotebookDirectory[], "..", "src"}];
 expandTemplateFiles[srcdir, {"*.cpp", "*.cc", "*.hpp", "*.h"}]
-
-
-
 
 
 

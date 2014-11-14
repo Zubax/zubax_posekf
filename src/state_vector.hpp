@@ -37,7 +37,7 @@ struct StateVector
         <* generateCPPReturnExpressionWithCSE[F, "        "] *>
     }
 
-    <* Riffle[generateCPPGetterForSymbol /@ Join[Names["Global`H*"], Names["Global`h*"]], "\n\n    "] // StringJoin
+    <* Riffle[generateCPPGetterForSymbol /@ Names["H`*"], "\n\n    "] // StringJoin
     *>
 };
 

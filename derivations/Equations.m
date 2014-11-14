@@ -3,6 +3,7 @@
 ClearAll["Global`*"];
 <<NavFunctions`;
 <<Quaternions`;
+<<CPPCodeGeneration`;
 
 
 StdGravity = 9.80665;
@@ -41,8 +42,8 @@ printMatrixByName /@ {"f", "F"};
  * Measurement update equations: h(x)
  *)
 makeMeasurementPrediction[name_, equation_] := {
-  Set[Evaluate[Symbol["Global`h" <> ToString[name]]], FullSimplify[equation]],
-  Set[Evaluate[Symbol["Global`H" <> ToString[name]]], FullSimplify[jacobian[equation, x]]]}
+  Set[Evaluate[Symbol["Global`h" <> ToString[name]]], equation],
+  Set[Evaluate[Symbol["Global`H" <> ToString[name]]], jacobian[equation, x]]}
 
 makeMeasurementPrediction["acc", a + ba + rotateVectorByQuaternion[gravity, qwi]];
 makeMeasurementPrediction["gyro", w + bw];
@@ -74,6 +75,11 @@ printMatrixByName["eulerFromQuaternionJacobian"];
 gnssVelocityLonLatClimbJacobian =
  jacobian[gnssVelocityLonLatClimb[gnssTrack, gnssSpeed, gnssClimb], {gnssTrack, gnssSpeed, gnssClimb}];
 printMatrixByName["gnssVelocityLonLatClimbJacobian"];
+
+
+
+srcdir = FileNameJoin[{NotebookDirectory[], "..", "src"}];
+expandTemplateFiles[srcdir, {"*.cpp", "*.cc", "*.hpp", "*.h"}]
 
 
 

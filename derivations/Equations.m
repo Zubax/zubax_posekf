@@ -50,7 +50,20 @@ normx = x;
 normx[[7;;10]] = quaternionAsColumnVector[normalizeQuaternion[qwi]];
 normx[[26;;29]] = quaternionAsColumnVector[normalizeQuaternion[qvw]];
 
-printMatrixByName /@ {"normx"};
+printMatrixByName @ "normx";
+
+(*
+ * Min Q, initial P
+ *)
+Qmindiag = ConstantArray[0,Length[x]];
+Qmindiag[[1;;10]] = ConstantArray[10^-6,10];
+Qmindiag[[11;;16]] = ConstantArray[1,6];
+
+Pinitdiag = ConstantArray[0,Length[x]];
+Pinitdiag[[1;;10]] = ConstantArray[10^3,10];
+Pinitdiag[[11;;16]] = ConstantArray[0.1,6];
+
+printMatrixByName /@ {"Qmindiag", "Pinitdiag"};
 
 (*
  * Measurement update equations: h(x)
@@ -92,3 +105,6 @@ printMatrixByName["gnssVelocityLonLatClimbJacobian"];
 
 srcdir = FileNameJoin[{NotebookDirectory[], "..", "src"}];
 expandTemplateFiles[srcdir, {"*.cpp", "*.cc", "*.hpp", "*.h"}]
+
+
+

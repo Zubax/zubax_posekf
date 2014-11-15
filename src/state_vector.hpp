@@ -29,6 +29,16 @@ public:
         x.setZero();
     }
 
+    static Vector<Size> Qmindiag() const
+    {
+        <* generateCPPReturnExpressionWithCSE[Transpose@{Qmindiag}, "        "] *>
+    }
+
+    static Vector<Size> Pinitdiag() const
+    {
+        <* generateCPPReturnExpressionWithCSE[Transpose@{Pinitdiag}, "        "] *>
+    }
+
     void normalize()
     {
         <* generateCPPExpressionWithCSE["normx", normx, "        "] *>

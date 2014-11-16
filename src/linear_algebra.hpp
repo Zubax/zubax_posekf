@@ -9,6 +9,7 @@
 #include <ros/ros.h>
 #include <eigen3/Eigen/Eigen>
 #include <cmath>
+#include "mathematica.hpp"
 
 namespace zubax_posekf
 {
@@ -189,6 +190,29 @@ inline bool validateAndFixCovarianceMatrix(Eigen::Matrix<Scalar, Size, Size, Opt
 
     matrix = 0.5 * (matrix + matrix.transpose());  // Make sure the matrix stays symmetric
     return retval;
+}
+
+/**
+ * @param array Row-major flat array
+ * @return      Matrix in default representation (column-major)
+ */
+template <int Rows, int Cols, typename Scalar = double>
+inline Eigen::Matrix<Scalar, Rows, Cols> matrixMsgToEigen(boost::array<Scalar, Rows * Cols> array)
+{
+    return Eigen::Map<Eigen::Matrix<Scalar, Rows, Cols, Eigen::RowMajor>>(array.data());
+}
+
+/**
+ * @param matrix Any matrix
+ * @return       Row-major flat array
+ */
+template <int Rows, int Cols, typename Scalar, int Options>
+inline boost::array<Scalar, Rows * Cols> matrixEigenToMsg(const Eigen::Matrix<Scalar, Rows, Cols, Options>& matrix)
+{
+    const Eigen::Matrix<Scalar, Rows, Cols, Eigen::RowMajor> row_major(matrix);
+    boost::array<Scalar, Rows * Cols> array;
+    std::copy_n(row_major.data(), Rows * Cols, array.begin());
+    return array;
 }
 
 }

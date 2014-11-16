@@ -42,14 +42,11 @@ inline boost::array<Scalar, Rows * Cols> matrixEigenToMsg(const Eigen::Matrix<Sc
 /**
  * ROS adapter for the filter class
  */
-class IMUFilterWrapper
+class FilterWrapper
 {
-    IMUFilter filter_;
+    Filter filter_;
     ros::Subscriber sub_imu_;
     ros::Subscriber sub_gnss_;
-
-    Scalar prev_gnss_update_ = 0.0;
-    Vector3 prev_gnss_vel_;
 
     mutable DebugPublisher pub_debug_;
     mutable ros::Publisher pub_imu_;
@@ -120,7 +117,6 @@ class IMUFilterWrapper
         Vector3 angvel;
         tf::vectorMsgToEigen(msg.angular_velocity, angvel);
 
-        const auto orientation_cov = matrixMsgToEigen<3, 3>(msg.orientation_covariance);
         auto accel_cov  = matrixMsgToEigen<3, 3>(msg.linear_acceleration_covariance);
         auto angvel_cov = matrixMsgToEigen<3, 3>(msg.angular_velocity_covariance);
 
@@ -139,13 +135,13 @@ class IMUFilterWrapper
          */
         if (!filter_.isInitialized())
         {
-            filter_.initialize(timestamp, quat, orientation_cov);
+            filter_.initialize(timestamp, quat);
             return;
         }
 
         filter_.performTimeUpdate(timestamp);
-        filter_.performAccelUpdate(timestamp, accel, accel_cov);
-        filter_.performGyroUpdate(timestamp, angvel, angvel_cov);
+        filter_.performAccelUpdate(accel, accel_cov);
+        filter_.performGyroUpdate(angvel, angvel_cov);
 
         publishEstimations();
     }
@@ -193,38 +189,10 @@ class IMUFilterWrapper
         }
 
         /*
-         * Acceleration computation
-         */
-        Vector3 accel;
-        Matrix3 Raccel;
-
-        accel.setZero();
-        Raccel = Matrix3::Identity() * 1e6;
-
-        if (prev_gnss_update_ > 0.0)
-        {
-            const Scalar dt = timestamp - prev_gnss_update_;
-            enforce("Non-positive dt", dt > 0);
-
-            accel = (vel - prev_gnss_vel_) / dt;
-
-            const Matrix3 G = Matrix3::Identity() / dt;  // {{1/dt, 0, 0}, {0, 1/dt, 0}, {0, 0, 1/dt}}
-            Raccel = G * Rvel * G.transpose();
-        }
-        else
-        {
-            ROS_INFO("GNSS: First message");
-        }
-        prev_gnss_update_ = timestamp;
-        prev_gnss_vel_ = vel;
-
-        /*
          * Debugging data
          */
         pub_debug_.publish("gnss_vel", vel);
         pub_debug_.publish("gnss_vel_cov", Rvel);
-        pub_debug_.publish("gnss_accel", accel);
-        pub_debug_.publish("gnss_accel_cov", Raccel);
 
         /*
          * Filter update
@@ -236,20 +204,18 @@ class IMUFilterWrapper
         }
 
         filter_.performTimeUpdate(timestamp);
-        filter_.performGnssAccelUpdate(timestamp, accel, Raccel);
+        // TODO: update
     }
 
 public:
-    IMUFilterWrapper(ros::NodeHandle& node, unsigned queue_size = 10)
+    FilterWrapper(ros::NodeHandle& node, unsigned queue_size = 10)
     {
-        sub_imu_  = node.subscribe("imu",  queue_size, &IMUFilterWrapper::cbImu, this);
-        sub_gnss_ = node.subscribe("gnss", queue_size, &IMUFilterWrapper::cbGnss, this);
+        sub_imu_  = node.subscribe("imu",  queue_size, &FilterWrapper::cbImu, this);
+        sub_gnss_ = node.subscribe("gnss", queue_size, &FilterWrapper::cbGnss, this);
 
         pub_imu_ = node.advertise<sensor_msgs::Imu>("out", queue_size);
 
-        prev_gnss_vel_.setZero();
-
-        ROS_INFO("IMUFilterWrapper inited");
+        ROS_INFO("FilterWrapper inited");
     }
 };
 
@@ -261,7 +227,7 @@ int main(int argc, char** argv)
 
     ros::NodeHandle node;
 
-    zubax_posekf::IMUFilterWrapper wrapper(node);
+    zubax_posekf::FilterWrapper wrapper(node);
 
     ros::spin();
 

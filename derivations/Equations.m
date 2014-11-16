@@ -92,7 +92,9 @@ printMatrixByName /@ Names["H`*"];
  * Parameterization and Non-Dedicated GPS Receivers" - John B. Schleppe (page 69)
  *)
 eulerFromQuaternionJacobian = jacobian[eulerFromQuaternion[qwi], List @@ qwi];
+quaternionFromEulerJacobian = jacobian[quaternionFromEuler[roll, pitch, yaw], {roll, pitch, yaw}];
 printMatrixByName["eulerFromQuaternionJacobian"];
+printMatrixByName["quaternionFromEulerJacobian"];
 
 (*
  * GNSS velocity conversion
@@ -105,6 +107,3 @@ printMatrixByName["gnssVelocityLonLatClimbJacobian"];
 
 srcdir = FileNameJoin[{NotebookDirectory[], "..", "src"}];
 expandTemplateFiles[srcdir, {"*.cpp", "*.cc", "*.hpp", "*.h"}]
-
-
-

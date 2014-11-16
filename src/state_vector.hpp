@@ -18,23 +18,28 @@ struct StateVector
 
     Vector<Size> x;
 
-private:
-    <* Riffle["Scalar& " <> ToString[#1] <> " = x[" <> ToString[#2] <>
-           "];" & @@@ Transpose[{Flatten[x], Range[0, Length[x] - 1]}], "\n    "] // StringJoin
+    struct Idx
+    {
+        <* Riffle["static constexpr int " <> ToString[#1] <> " = " <> ToString[#2] <>
+               ";" & @@@ Transpose[{Flatten[x], Range[0, Length[x] - 1]}], "\n        "] // StringJoin
+        *>
+    };
+
+    <* Riffle["Scalar& " <> ToString[#] <> " = x[Idx::" <> ToString[#] <> "];" &
+           /@ Flatten[x], "\n    "] // StringJoin
     *>
 
-public:
     StateVector()
     {
         x.setZero();
     }
 
-    static Vector<Size> Qmindiag() const
+    static Vector<Size> Qmindiag()
     {
         <* generateCPPReturnExpressionWithCSE[Transpose@{Qmindiag}, "        "] *>
     }
 
-    static Vector<Size> Pinitdiag() const
+    static Vector<Size> Pinitdiag()
     {
         <* generateCPPReturnExpressionWithCSE[Transpose@{Pinitdiag}, "        "] *>
     }

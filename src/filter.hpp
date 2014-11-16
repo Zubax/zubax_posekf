@@ -29,7 +29,7 @@ class Filter
 
     const Scalar MaxGyroDrift = 0.1;
     const Scalar MaxAccelDrift = 2.0;
-    const Scalar MaxCovariance = 1e6;
+    const Scalar MaxCovariance = 1e9;
     const Scalar MinVariance = 1e-9;
 
     Scalar state_timestamp_ = 0.0;

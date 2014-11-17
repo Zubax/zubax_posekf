@@ -89,7 +89,7 @@ class FilterWrapper
         if (!filter_.isInitialized())
         {
             filter_.initialize(sample.timestamp.toSec(),
-                               quaternionFromEuler(Vector3(0, 0, M_PI / 2.0)) * sample.orientation);
+                               quaternionFromEuler(Vector3(0, 0, -M_PI / 2.0)) * sample.orientation);
             return;
         }
 
@@ -113,7 +113,7 @@ class FilterWrapper
         tf::vectorEigenToMsg(local.position, tf.transform.translation);
         pub_tf_.sendTransform(tf);
 
-        if (filter_.getTimestamp() >= local.timestamp.toSec())
+        if (filter_.getTimestamp() >= (local.timestamp.toSec() + 0.3))  // TODO: get rid of this later
         {
             ROS_WARN_THROTTLE(1, "GNSS update from the past [%f sec]",
                               filter_.getTimestamp() - local.timestamp.toSec());
@@ -153,13 +153,21 @@ public:
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "posekf");
+    try
+    {
+        ros::init(argc, argv, "posekf");
 
-    ros::NodeHandle node;
+        ros::NodeHandle node;
 
-    zubax_posekf::FilterWrapper wrapper(node);
+        zubax_posekf::FilterWrapper wrapper(node);
 
-    ros::spin();
+        ros::spin();
+    }
+    catch (const zubax_posekf::Exception& ex)
+    {
+        std::cerr << "zubax_posekf::Exception: " << ex.what() << std::endl;
+        return -1;
+    }
 
     return 0;
 }

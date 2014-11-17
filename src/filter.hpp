@@ -81,7 +81,11 @@ class Filter
         ROS_ASSERT(initialized_);
 
         const Matrix<NumDims, NumDims> R_sym = 0.5 * (R + R.transpose());  // Ensure that R is symmetric
-        enforce("Measurement R", R.norm() > 0);
+
+        for (int i = 0; i < NumDims; i++)
+        {
+            enforce("Measurement R", R(i, i) > 0);
+        }
 
         Matrix<NumDims, NumDims> S_inv;
         {
@@ -162,7 +166,7 @@ public:
 
         state_.x = state_.f(dt);
 
-        P_ = F * P_ * F.transpose() + Q_;
+        P_ = F * P_ * F.transpose() + Q_ * dt;
 
         normalizeAndCheck();
 

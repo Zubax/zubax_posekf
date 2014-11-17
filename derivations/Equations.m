@@ -54,10 +54,12 @@ printMatrixByName @ "normx";
 
 (*
  * Min Q, initial P
+ * Q is the speed of covariance growth, units per second
  *)
 Qmindiag = ConstantArray[0,Length[x]];
-Qmindiag[[1;;10]] = ConstantArray[10^-6,10];
-Qmindiag[[11;;16]] = ConstantArray[10,6];
+Qmindiag[[1;;10]] = ConstantArray[10^-4,10];
+Qmindiag[[11;;16]] = ConstantArray[10^2,6];
+Qmindiag[[23;;29]] = ConstantArray[10^-4,7];
 
 Pinitdiag = ConstantArray[10^-6,Length[x]];
 Pinitdiag[[1;;10]] = ConstantArray[10^3,10];
@@ -107,6 +109,9 @@ printMatrixByName["gnssVelocityLonLatClimbJacobian"];
 
 srcdir = FileNameJoin[{NotebookDirectory[], "..", "src"}];
 expandTemplateFiles[srcdir, {"*.cpp", "*.cc", "*.hpp", "*.h"}]
+
+
+
 
 
 

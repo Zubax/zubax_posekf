@@ -89,7 +89,7 @@ class FilterWrapper
         if (!filter_.isInitialized())
         {
             filter_.initialize(sample.timestamp.toSec(),
-                               quaternionFromEuler(Vector3(0, 0, -M_PI / 2.0)) * sample.orientation);
+                               quaternionFromEuler(Vector3(0, 0, M_PI / 2.0)) * sample.orientation);
             return;
         }
 

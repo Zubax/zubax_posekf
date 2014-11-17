@@ -23,10 +23,12 @@ x = Join[
  quaternionAsColumnVector[defineSymbolicQuaternion["X`qwi"]], (* 7, world --> IMU rotation *)
  defineSymbolicColumnVectorXYZ["X`a"], (* 11, acceleration *)
  defineSymbolicColumnVectorXYZ["X`w"], (* 14, angular velocity *)
- defineSymbolicColumnVectorXYZ["X`ba"], (* 17, accelerometer bias *)
- defineSymbolicColumnVectorXYZ["X`bw"], (* 20, rate gyro bias *)
- defineSymbolicColumnVectorXYZ["X`pvw"],(* 23, visual --> world translation *)
- quaternionAsColumnVector[defineSymbolicQuaternion["X`qvw"]]]; (* 26, visual --> world rotation *)
+ defineSymbolicColumnVectorXYZ["X`ja"], (* 17, linear jerk *)
+ defineSymbolicColumnVectorXYZ["X`jw"], (* 20, angular acceleration *)
+ defineSymbolicColumnVectorXYZ["X`ba"], (* 23, accelerometer bias *)
+ defineSymbolicColumnVectorXYZ["X`bw"], (* 26, rate gyro bias *)
+ defineSymbolicColumnVectorXYZ["X`pvw"],(* 29, visual --> world translation *)
+ quaternionAsColumnVector[defineSymbolicQuaternion["X`qvw"]]]; (* 32, visual --> world rotation *)
 
 printMatrixByName["x"]
 
@@ -34,12 +36,14 @@ printMatrixByName["x"]
  * Time update: f(x, dt)
  *)
 f = x;
-f[[1;;10]] = Join[
- pwi + dt vwi + dt dt rotateVectorByQuaternion[gravity, Conjugate[qwi]],
- vwi + dt rotateVectorByQuaternion[gravity, Conjugate[qwi]],
- quaternionAsColumnVector[qwi ** simplifiedDeltaQuaternionFromAngularRate[w, dt]]];
+f[[1;;16]] = Join[
+ pwi + dt vwi + dt dt rotateVectorByQuaternion[a + dt ja, Conjugate[qwi]],
+ vwi + dt rotateVectorByQuaternion[a + dt ja, Conjugate[qwi]],
+ quaternionAsColumnVector[qwi ** simplifiedDeltaQuaternionFromAngularRate[w + dt jw, dt]],
+ a + dt ja,
+ w + dt jw];
 F = jacobian[f,x];
-f[[7;;10]] = quaternionAsColumnVector[qwi ** deltaQuaternionFromAngularRate[w, dt]];
+f[[7;;10]] = quaternionAsColumnVector[qwi ** deltaQuaternionFromAngularRate[w + dt jw, dt]];
 
 printMatrixByName /@ {"f", "F"};
 
@@ -48,7 +52,7 @@ printMatrixByName /@ {"f", "F"};
  *)
 normx = x;
 normx[[7;;10]] = quaternionAsColumnVector[normalizeQuaternion[qwi]];
-normx[[26;;29]] = quaternionAsColumnVector[normalizeQuaternion[qvw]];
+normx[[32;;35]] = quaternionAsColumnVector[normalizeQuaternion[qvw]];
 
 printMatrixByName @ "normx";
 
@@ -58,12 +62,12 @@ printMatrixByName @ "normx";
  *)
 Qmindiag = ConstantArray[0,Length[x]];
 Qmindiag[[1;;10]] = ConstantArray[10^-4,10];
-Qmindiag[[11;;16]] = ConstantArray[10^2,6];
-Qmindiag[[23;;29]] = ConstantArray[10^-4,7];
+Qmindiag[[11;;22]] = ConstantArray[10^1,12];
+Qmindiag[[29;;35]] = ConstantArray[10^-4,7];
 
-Pinitdiag = ConstantArray[10^-6,Length[x]];
-Pinitdiag[[1;;10]] = ConstantArray[10^3,10];
-Pinitdiag[[11;;16]] = ConstantArray[0.1,6];
+Pinitdiag = ConstantArray[10^3,Length[x]];
+Pinitdiag[[11;;22]] = ConstantArray[10^-1,12];
+Pinitdiag[[23;;35]] = ConstantArray[10^-3,13];
 
 printMatrixByName /@ {"Qmindiag", "Pinitdiag"};
 

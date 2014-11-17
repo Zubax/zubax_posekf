@@ -100,6 +100,8 @@ class Filter
         P_ = IKH * P_ * IKH.transpose() + K * R_sym * K.transpose();
 
         normalizeAndCheck();
+
+        std::cout << "P:\n" << P_ << "\n" << std::endl;
     }
 
 public:

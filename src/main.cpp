@@ -55,7 +55,7 @@ class FilterWrapper
          * Publishing the second IMU transform
          */
         geometry_msgs::TransformStamped tf;
-        tf.header.frame_id = "map";
+        tf.header.frame_id = "base_link";
         tf.header.stamp = msg.header.stamp;
         tf.child_frame_id = msg.header.frame_id;
         tf.transform.rotation = msg.orientation;
@@ -76,7 +76,7 @@ class FilterWrapper
          * Publishing the original IMU transform
          */
         geometry_msgs::TransformStamped tf;
-        tf.header.frame_id = "map";
+        tf.header.frame_id = "base_link";
         tf.header.stamp = sample.timestamp;
         tf.child_frame_id = "zubax_posekf_in";
         tf::quaternionEigenToMsg(sample.orientation, tf.transform.rotation);
@@ -88,7 +88,8 @@ class FilterWrapper
          */
         if (!filter_.isInitialized())
         {
-            filter_.initialize(sample.timestamp.toSec(), sample.orientation);
+            filter_.initialize(sample.timestamp.toSec(),
+                               quaternionFromEuler(Vector3(0, 0, M_PI / 2.0)) * sample.orientation);
             return;
         }
 
@@ -101,6 +102,17 @@ class FilterWrapper
 
     void cbGnss(const GNSSLocalPosVel& local, const gps_common::GPSFix&)
     {
+        /*
+         * Publishing the location transform
+         */
+        geometry_msgs::TransformStamped tf;
+        tf.header.frame_id = "world";
+        tf.header.stamp = local.timestamp + ros::Duration().fromSec(0.1);
+        tf.child_frame_id = "base_link";
+        tf.transform.rotation.w = 1.0;
+        tf::vectorEigenToMsg(local.position, tf.transform.translation);
+        pub_tf_.sendTransform(tf);
+
         if (filter_.getTimestamp() >= local.timestamp.toSec())
         {
             ROS_WARN_THROTTLE(1, "GNSS update from the past [%f sec]",
@@ -117,6 +129,8 @@ class FilterWrapper
         filter_.performTimeUpdate(local.timestamp.toSec());
         filter_.performGNSSPosUpdate(local.position, local.position_covariance);
         filter_.performGNSSVelUpdate(local.velocity, local.velocity_covariance);
+
+        publishEstimations();
     }
 
 public:

@@ -57,7 +57,7 @@ printMatrixByName @ "normx";
  *)
 Qmindiag = ConstantArray[0,Length[x]];
 Qmindiag[[1;;10]] = ConstantArray[10^-6,10];
-Qmindiag[[11;;16]] = ConstantArray[1,6];
+Qmindiag[[11;;16]] = ConstantArray[10,6];
 
 Pinitdiag = ConstantArray[10^-6,Length[x]];
 Pinitdiag[[1;;10]] = ConstantArray[10^3,10];

@@ -58,7 +58,7 @@ class Filter
         // P validation
         if (!validateAndFixCovarianceMatrix(P_, MaxCovariance, MinVariance))
         {
-            ROS_ERROR_STREAM_THROTTLE(1, "Matrix P has been fixed\n" << P_);
+            ROS_ERROR_STREAM_THROTTLE(1, "Matrix P has been fixed\n" << P_.format(Eigen::IOFormat(2)));
         }
 
         debug_pub_.publish("x", state_.x);
@@ -138,9 +138,9 @@ public:
 
         normalizeAndCheck();
 
-        ROS_INFO_STREAM("Initial P:\n" << P_);
-        ROS_INFO_STREAM("Initial Q:\n" << Q_);
-        ROS_INFO_STREAM("Initial x:\n" << state_.x);
+        ROS_INFO_STREAM("Initial P:\n" << P_.format(Eigen::IOFormat(2)));
+        ROS_INFO_STREAM("Initial Q:\n" << Q_.format(Eigen::IOFormat(2)));
+        ROS_INFO_STREAM("Initial x:\n" << state_.x.transpose().format(Eigen::IOFormat(2)));
     }
 
     void performTimeUpdate(Scalar timestamp)

@@ -151,9 +151,17 @@ class GNSSProvider
 
         Matrix3 cov;
         cov.setZero();
-        cov(0, 0) = msg.err_horz * msg.err_horz;
-        cov(1, 1) = msg.err_horz * msg.err_horz;
-        cov(2, 2) = msg.err_vert * msg.err_vert;
+        if (msg.position_covariance_type == msg.COVARIANCE_TYPE_UNKNOWN)
+        {
+            cov(0, 0) = msg.err_horz * msg.err_horz;
+            cov(1, 1) = msg.err_horz * msg.err_horz;
+            cov(2, 2) = msg.err_vert * msg.err_vert;
+        }
+        else
+        {
+            cov = matrixMsgToEigen<3, 3>(msg.position_covariance);
+            cov = (cov + cov.transpose()) * 0.5;          // Ensure it's symmetric
+        }
 
         enforce("GNSS position", cov.sum() > 0);
 

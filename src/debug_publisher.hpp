@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <ros/ros.h>
 #include <std_msgs/Float64MultiArray.h>
+#include <geometry_msgs/Vector3.h>
 #include <std_msgs/Float64.h>
 #include <eigen3/Eigen/Eigen>
 
@@ -73,6 +74,16 @@ public:
             }
         }
 
+        publishROSMessage(name, msg);
+    }
+
+    template <typename Scalar, int Options>
+    void publish(const std::string& name, const Eigen::Matrix<Scalar, 3, 1, Options>& vector)
+    {
+        geometry_msgs::Vector3 msg;
+        msg.x = vector[0];
+        msg.y = vector[1];
+        msg.z = vector[2];
         publishROSMessage(name, msg);
     }
 

@@ -76,30 +76,59 @@ class Filter
     template <int NumDims>
     void performMeasurementUpdate(const Vector<NumDims>& y,
                                   const Matrix<NumDims, NumDims>& R,
-                                  const Matrix<NumDims, StateVector::Size>& H)
+                                  const Matrix<NumDims, StateVector::Size>& H,
+                                  const char* const source_name)
     {
         ROS_ASSERT(initialized_);
 
-        const Matrix<NumDims, NumDims> R_sym = 0.5 * (R + R.transpose());  // Ensure that R is symmetric
-
-        for (int i = 0; i < NumDims; i++)
+        /*
+         * Ensure that R is symmetric, then validate
+         */
+        const Matrix<NumDims, NumDims> R_sym = 0.5 * (R + R.transpose());
         {
-            enforce("Measurement R", R(i, i) > 0);
+            bool R_sym_ok = true;
+            for (int i = 0; i < NumDims; i++)
+            {
+                if (R_sym(i, i) <= 0)
+                {
+                    R_sym_ok = false;
+                    break;
+                }
+            }
+
+            if (!R_sym_ok || !std::isfinite(R_sym.sum()))
+            {
+                std::ostringstream os;
+                os << "Measurement R_sym [" << source_name << "]:\n" << R_sym;
+                throw Exception(os.str());
+            }
         }
 
+        /*
+         * Compute S inverse with validation
+         */
         Matrix<NumDims, NumDims> S_inv;
         {
             const Matrix<NumDims, NumDims> S = H * P_ * H.transpose() + R_sym;
             bool s_is_invertible = false;
             S.computeInverseWithCheck(S_inv, s_is_invertible);
-            enforce("S is not invertible (numerical failure?)", s_is_invertible);
+            if (!s_is_invertible)
+            {
+                std::ostringstream os;
+                os << "S is not invertible (numerical failure?) [" << source_name << "]:\n" << S
+                    << "\nR_sym:\n" << R_sym;
+                throw Exception(os.str());
+            }
         }
 
+        /*
+         * Kalman update equations
+         * Joseph form is used instead of the simplified form to improve numerical stability
+         */
         const auto K = static_cast<Matrix<StateVector::Size, NumDims> >(P_ * H.transpose() * S_inv);
 
         state_.x = state_.x + K * y;
 
-        // Joseph form is used instead of the simplified form to improve numerical stability
         const Matrix<StateVector::Size, StateVector::Size> IKH = decltype(P_)::Identity() - K * H;
         P_ = IKH * P_ * IKH.transpose() + K * R_sym * K.transpose();
 
@@ -177,31 +206,31 @@ public:
     void performAccelUpdate(const Vector3& accel, const Matrix3& cov)
     {
         const Vector3 y = accel - state_.hacc();
-        performMeasurementUpdate(y, cov, state_.Hacc());
+        performMeasurementUpdate(y, cov, state_.Hacc(), "acc");
     }
 
     void performGyroUpdate(const Vector3& angvel, const Matrix3& cov)
     {
         const Vector3 y = angvel - state_.hgyro();
-        performMeasurementUpdate(y, cov, state_.Hgyro());
+        performMeasurementUpdate(y, cov, state_.Hgyro(), "gyro");
     }
 
     void performGNSSPosUpdate(const Vector3& pos, const Matrix3& cov)
     {
         const Vector3 y = pos - state_.hgnsspos();
-        performMeasurementUpdate(y, cov, state_.Hgnsspos());
+        performMeasurementUpdate(y, cov, state_.Hgnsspos(), "gnsspos");
     }
 
     void performGNSSVelUpdate(const Vector3& vel, const Matrix3& cov)
     {
         const Vector3 y = vel - state_.hgnssvel();
-        performMeasurementUpdate(y, cov, state_.Hgnssvel());
+        performMeasurementUpdate(y, cov, state_.Hgnssvel(), "gnssvel");
     }
 
     void performVisPosUpdate(const Vector3& pos, const Matrix3& cov)
     {
         const Vector3 y = pos - state_.hvispos();
-        performMeasurementUpdate(y, cov, state_.Hvispos());
+        performMeasurementUpdate(y, cov, state_.Hvispos(), "vispos");
     }
 
     void performVisAttUpdate(const Quaternion& z, const Matrix3& cov)
@@ -225,7 +254,7 @@ public:
         const Matrix<4, 3> G = quaternionFromEulerJacobian(quaternionToEuler(z));
         const auto R = static_cast<Matrix<4, 4> >(G * cov * G.transpose());
 
-        performMeasurementUpdate(y, R, state_.Hvisatt());
+        performMeasurementUpdate(y, R, state_.Hvisatt(), "visatt");
 
         debug_pub_.publish("visatt_R", R);
     }

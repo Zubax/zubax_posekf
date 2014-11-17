@@ -11,7 +11,7 @@
 namespace zubax_posekf
 {
 
-class Exception : std::runtime_error
+class Exception : public std::runtime_error
 {
 public:
     Exception(const std::string& text) : std::runtime_error(text) { }

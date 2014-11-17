@@ -107,6 +107,7 @@ public:
 class GNSSProvider
 {
     const Scalar DefaultTrackStdevDeg = 30.0;
+    const Scalar DefaultClimbRateStdevMS = 4.0;
     const Scalar MaxSaneSpeedMS = 515.0;
 
     ros::Subscriber sub_gnss_;
@@ -154,6 +155,8 @@ class GNSSProvider
         cov(1, 1) = msg.err_horz * msg.err_horz;
         cov(2, 2) = msg.err_vert * msg.err_vert;
 
+        enforce("GNSS position", cov.sum() > 0);
+
         return {pos, cov};
     }
 
@@ -165,7 +168,7 @@ class GNSSProvider
         const Scalar gnssSpeed = msg.speed;
         const Scalar gnssClimb = msg.climb;
 
-        enforce("GNSS data",
+        enforce("GNSS track, speed, climb",
                 (Abs(gnssTrack) <= 2.0 * Pi) &&
                 (Abs(gnssSpeed) < MaxSaneSpeedMS) &&
                 (Abs(gnssClimb) < MaxSaneSpeedMS));
@@ -178,9 +181,14 @@ class GNSSProvider
 
         const auto Rpolar = List(List(Power(err_track_rad, 2), 0, 0),  // stdev --> covariance matrix
                                  List(0, Power(msg.err_speed, 2), 0),
-                                 List(0, 0, Power(msg.err_climb, 2)));
+                                 List(0, 0, Power((msg.err_climb > 0) ? msg.err_climb : DefaultClimbRateStdevMS, 2)));
 
-        enforce("GNSS R polar", (Rpolar(0, 0) > 0) && (Rpolar(1, 1) > 0) && (Rpolar(2, 2) > 0));
+        if ((Rpolar(0, 0) <= 0) || (Rpolar(1, 1) <= 0) || (Rpolar(2, 2) <= 0))
+        {
+            std::ostringstream os;
+            os << "GNSS R polar:\n" << Rpolar;
+            throw Exception(os.str());
+        }
 
         // Convariance transformation Jacobian
         const auto Gpolar = List(List(gnssSpeed * Cos(gnssTrack), Sin(gnssTrack), 0),
@@ -189,7 +197,12 @@ class GNSSProvider
 
         const Matrix3 R = Gpolar * Rpolar * Gpolar.transpose();
 
-        enforce("GNSS R vel", (R(0, 0) > 0) && (R(1, 1) > 0) && (R(2, 2) > 0));
+        if ((R(0, 0) <= 0) || (R(1, 1) <= 0) || (R(2, 2) <= 0) || !std::isfinite(R.sum()))
+        {
+            std::ostringstream os;
+            os << "GNSS R vel:\n" << R << "\nGNSS R polar:\n" << Rpolar;
+            throw Exception(os.str());
+        }
 
         return {vel, R};
     }
@@ -212,8 +225,8 @@ class GNSSProvider
             }
             else
             {
-                ROS_INFO_THROTTLE(1, "GNSS Provider: Can't initialize origin: nsats=%d, err_horz=%f",
-                                  msg.status.satellites_used, msg.err_horz);
+                ROS_INFO_THROTTLE(1, "GNSS Provider: Can't initialize origin: nsats=%d, err_horz=%f, status=%d",
+                                  msg.status.satellites_used, msg.err_horz, static_cast<int>(msg.status.status));
                 return;
             }
         }
@@ -243,6 +256,7 @@ class GNSSProvider
         last_sample_.position = pos_and_cov.first;
         last_sample_.position_covariance = pos_and_cov.second;
 
+        ROS_ASSERT(origin_set_);
         if (on_sample)
         {
             on_sample(last_sample_, msg);
@@ -256,6 +270,9 @@ public:
     }
 
     GNSSLocalPosVel getLastSample() const { return last_sample_; }
+
+    GeoLonLat getOrigin() const { return origin_; }
+    bool isOriginSet() const { return origin_set_; }
 
     std::function<void (const GNSSLocalPosVel&, const gps_common::GPSFix&)> on_sample;
 };

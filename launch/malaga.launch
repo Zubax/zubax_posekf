@@ -31,4 +31,30 @@
         <remap from="imu_out" to="/dev/imu/data" />
         <remap from="gnss_out" to="/dev/gnss/fix" />
     </node>
+
+    <!-- Stereo image proc -->
+    <remap from="/stereo/left/image_raw"    to="/left/image_raw" />
+    <remap from="/stereo/left/camera_info"  to="/left/camera_info" />
+    <remap from="/stereo/right/image_raw"   to="/right/image_raw" />
+    <remap from="/stereo/right/camera_info" to="/right/camera_info" />
+    <group ns="stereo">
+        <node pkg="stereo_image_proc" name="stereo_image_proc" type="stereo_image_proc" output="screen"
+            clear_params="true" required="true">
+            <rosparam param="approximate_sync">true</rosparam>
+            <rosparam command="load" file="$(find zubax_posekf)/launch/stereo_image_proc.yaml"/>
+        </node>
+    </group>
+
+    <!-- Viso2 -->
+    <node pkg="viso2_ros" name="viso2" type="stereo_odometer" output="screen"
+          clear_params="true" required="true">
+        <remap from="stereo" to="stereo" />
+        <remap from="image" to="image_rect_color" />
+        <remap from="viso2/odometry" to="/visual_odom" />
+
+        <rosparam param="approximate_sync">true</rosparam>
+        <rosparam param="publish_tf">false</rosparam>
+        <rosparam param="odom_frame_id">world</rosparam>
+        <rosparam param="base_link_frame_id">base_link</rosparam>
+    </node>
 </launch>

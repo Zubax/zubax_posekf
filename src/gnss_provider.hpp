@@ -124,6 +124,8 @@ class GNSSProvider
         int min_sats = 0;
         int min_sats_to_init_origin = 0;
         double max_err_horz_to_init_origin = 40.0;
+        double position_cov_mult = 3.0;            ///< TODO: heuristic covariance estimation
+        double velocity_cov_mult = 3.0;
 
         Config()
         {
@@ -132,14 +134,20 @@ class GNSSProvider
             (void)node.getParam("min_sats", min_sats);
             (void)node.getParam("min_sats_to_init_origin", min_sats_to_init_origin);
             (void)node.getParam("max_err_horz_to_init_origin", max_err_horz_to_init_origin);
+            (void)node.getParam("position_cov_mult", position_cov_mult);
+            (void)node.getParam("velocity_cov_mult", velocity_cov_mult);
 
             ROS_INFO("GNSS Provider:\n"
                      "\t~gnss/min_sats                    = %d\n"
                      "\t~gnss/min_sats_to_init_origin     = %d\n"
-                     "\t~gnss/max_err_horz_to_init_origin = %f",
+                    "\t~gnss/max_err_horz_to_init_origin = %f\n"
+                    "\t~gnss/position_cov_mult = %f\n"
+                    "\t~gnss/velocity_cov_mult = %f",
                      min_sats,
                      min_sats_to_init_origin,
-                     max_err_horz_to_init_origin);
+                     max_err_horz_to_init_origin,
+                     position_cov_mult,
+                     velocity_cov_mult);
         }
     } const config_;
 
@@ -170,7 +178,7 @@ class GNSSProvider
 
         enforce("GNSS position", cov.sum() > 0);
 
-        return {pos, cov};
+        return {pos, cov * config_.position_cov_mult};
     }
 
     std::pair<Vector3, Matrix3> computeVelocityVectorWithCovariance(const gps_common::GPSFix& msg) const
@@ -229,7 +237,7 @@ class GNSSProvider
             throw Exception(os.str());
         }
 
-        return {vel, R};
+        return {vel, R * config_.velocity_cov_mult};
     }
 
     void cbGnss(const gps_common::GPSFix& msg)

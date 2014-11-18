@@ -22,6 +22,17 @@
         <param name="rotation_yaw"   value="185" />
     </node>
 
+    <!-- VO transformer -->
+    <node name="vo_transformer" pkg="zubax_posekf" type="odometry_frame_transformer.py" output="screen"
+          clear_params="true" required="true">
+
+        <remap from="odom_in" to="/visual_odom" />
+        <remap from="odom_out" to="/visual_odom_unbounded" />
+
+        <param name="child_frame_id" value="visual_odom" />
+        <param name="rotation_yaw"   value="185" />
+    </node>
+
     <!-- Convariance injector -->
     <node name="covariance_injector" pkg="zubax_posekf" type="covariance_injector.py" output="screen"
           clear_params="true" required="true">

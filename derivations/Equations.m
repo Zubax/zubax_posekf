@@ -67,7 +67,7 @@ Qmindiag[[29;;35]] = ConstantArray[10^-4,7];
 
 Pinitdiag = ConstantArray[10^3,Length[x]];
 Pinitdiag[[11;;22]] = ConstantArray[10^-1,12];
-Pinitdiag[[23;;35]] = ConstantArray[10^-3,13];
+Pinitdiag[[23;;28]] = ConstantArray[10^-3,6];
 
 printMatrixByName /@ {"Qmindiag", "Pinitdiag"};
 
@@ -113,6 +113,9 @@ printMatrixByName["gnssVelocityLonLatClimbJacobian"];
 
 srcdir = FileNameJoin[{NotebookDirectory[], "..", "src"}];
 expandTemplateFiles[srcdir, {"*.cpp", "*.cc", "*.hpp", "*.h"}]
+
+
+
 
 
 

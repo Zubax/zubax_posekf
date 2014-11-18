@@ -10,6 +10,7 @@
 #include <nav_msgs/Odometry.h>
 #include "gnss_provider.hpp"
 #include "imu_provider.hpp"
+#include "visual_provider.hpp"
 #include "filter.hpp"
 #include "linear_algebra.hpp"
 #include "exception.hpp"
@@ -48,6 +49,7 @@ class FilterWrapper
     Filter filter_;
     GNSSProvider gnss_provider_;
     IMUProvider imu_provider_;
+    VisualProvider visual_provider_;
 
     void publishEstimations(const std::string& body_frame_id) const
     {
@@ -154,16 +156,41 @@ class FilterWrapper
         filter_.performGNSSVelUpdate(local.velocity, local.velocity_covariance);
     }
 
+    void cbVisual(const VisualSample& sample, const CameraTransform& transform)
+    {
+        (void)transform;
+        if (filter_.getTimestamp() >= (sample.timestamp.toSec() + 0.3))  // TODO: get rid of this later
+        {
+            ROS_WARN_THROTTLE(1, "Visual update from the past [%f sec]",
+                              filter_.getTimestamp() - sample.timestamp.toSec());
+            return;
+        }
+
+        if (!filter_.isInitialized())
+        {
+            ROS_WARN_THROTTLE(1, "Visual update skipped - not inited yet");
+            return;
+        }
+
+        filter_.performTimeUpdate(sample.timestamp.toSec());
+        filter_.performVisPosUpdate(sample.position, Matrix3(sample.position_orientation_cov.block<3, 3>(0, 0)));
+        filter_.performVisAttUpdate(sample.orientation, Matrix3(sample.position_orientation_cov.block<3, 3>(3, 3)));
+    }
+
 public:
     FilterWrapper(ros::NodeHandle& node)
         : gnss_provider_(node, "gnss")
         , imu_provider_(node, "imu")
+        , visual_provider_(node, "visual_odom")
     {
         gnss_provider_.on_sample = std::bind(&FilterWrapper::cbGnss, this,
                                              std::placeholders::_1, std::placeholders::_2);
 
         imu_provider_.on_sample = std::bind(&FilterWrapper::cbImu, this,
                                             std::placeholders::_1, std::placeholders::_2);
+
+        visual_provider_.on_sample = std::bind(&FilterWrapper::cbVisual, this,
+                                               std::placeholders::_1, std::placeholders::_2);
 
         pub_odometry_ = node.advertise<nav_msgs::Odometry>("out_odom", 10);
         pub_imu_ = node.advertise<sensor_msgs::Imu>("out_imu", 10);

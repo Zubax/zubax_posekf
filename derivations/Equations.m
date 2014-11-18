@@ -63,7 +63,7 @@ printMatrixByName @ "normx";
 Qmindiag = ConstantArray[0,Length[x]];
 Qmindiag[[1;;10]] = ConstantArray[10^-4,10];
 Qmindiag[[11;;22]] = ConstantArray[10^1,12];
-Qmindiag[[29;;35]] = ConstantArray[10^-4,7];
+Qmindiag[[29;;35]] = ConstantArray[10^2,7];
 
 Pinitdiag = ConstantArray[10^3,Length[x]];
 Pinitdiag[[11;;22]] = ConstantArray[10^-1,12];
@@ -84,7 +84,7 @@ makeMeasurementPrediction["gyro", w + bw];
 makeMeasurementPrediction["gnsspos", pwi];
 makeMeasurementPrediction["gnssvel", vwi];
 
-makeMeasurementPrediction["vispos", rotateVectorByQuaternion[pwi + pvw, qwi ** qvw]];
+makeMeasurementPrediction["vispos", rotateVectorByQuaternion[pwi + rotateVectorByQuaternion[pvw, qvw], qwi]];
 makeMeasurementPrediction["visatt", qwi ** qvw];
 
 makeMeasurementPrediction["climbrate", {vwi[[3]]}];

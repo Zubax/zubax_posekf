@@ -94,7 +94,7 @@ class IMUProvider
 
         if (on_sample)
         {
-            on_sample(last_sample_);
+            on_sample(last_sample_, msg);
         }
     }
 
@@ -106,7 +106,7 @@ public:
 
     IMUSample getLastSample() const { return last_sample_; }
 
-    std::function<void (const IMUSample&)> on_sample;
+    std::function<void (const IMUSample&, const sensor_msgs::Imu&)> on_sample;
 };
 
 }

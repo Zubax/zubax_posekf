@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
     std_msgs
     gps_common
     visualization_msgs
+    nav_msgs
     eigen_conversions
     tf
 )

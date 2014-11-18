@@ -7,6 +7,7 @@
 #include <ros/ros.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <nav_msgs/Odometry.h>
 #include "gnss_provider.hpp"
 #include "imu_provider.hpp"
 #include "filter.hpp"
@@ -20,67 +21,99 @@ namespace zubax_posekf
  */
 class FilterWrapper
 {
-    mutable ros::Publisher pub_imu_;
+    struct Config
+    {
+        std::string fixed_frame_id = "world";
+        std::string body_frame_id = "";       ///< Empty means autodetect (IMU frame)
+
+        Config()
+        {
+            ros::NodeHandle node("~");
+
+            (void)node.getParam("fixed_frame_id", fixed_frame_id);
+            (void)node.getParam("body_frame_id", body_frame_id);
+
+            ROS_INFO("Filter:\n"
+                     "\t~fixed_frame_id = %s\n"
+                     "\t~body_frame_id = %s",
+                     fixed_frame_id.c_str(),
+                     body_frame_id.empty() ? "<derive from IMU>" : body_frame_id.c_str());
+        }
+    } const config_;
+
     mutable tf2_ros::TransformBroadcaster pub_tf_;
+    mutable ros::Publisher pub_odometry_;
+    mutable ros::Publisher pub_imu_;
 
     Filter filter_;
     GNSSProvider gnss_provider_;
     IMUProvider imu_provider_;
 
-    void publishEstimations() const
+    void publishEstimations(const std::string& body_frame_id) const
     {
-        sensor_msgs::Imu msg;
-        msg.header.frame_id = "zubax_posekf_out";
-        msg.header.stamp.fromSec(filter_.getTimestamp());
+        /*
+         * Main filter output - odometry message
+         */
+        nav_msgs::Odometry odom;
+        odom.header.frame_id = config_.fixed_frame_id;     // Fixed frame name can be configured
+        odom.header.stamp.fromSec(filter_.getTimestamp());
 
-        {
-            const auto orientation = filter_.getOutputOrientation();
-            tf::quaternionEigenToMsg(orientation.first, msg.orientation);
-            msg.orientation_covariance = matrixEigenToMsg(orientation.second);
-        }
-        {
-            const auto accel = filter_.getOutputAcceleration();
-            tf::vectorEigenToMsg(accel.first, msg.linear_acceleration);
-            msg.linear_acceleration_covariance = matrixEigenToMsg(accel.second);
-        }
-        {
-            const auto angvel = filter_.getOutputAngularVelocity();
-            tf::vectorEigenToMsg(angvel.first, msg.angular_velocity);
-            msg.angular_velocity_covariance = matrixEigenToMsg(angvel.second);
-        }
+        odom.child_frame_id = config_.body_frame_id.empty() ? body_frame_id : config_.body_frame_id;
 
-        pub_imu_.publish(msg);
+        const auto pose = filter_.getOutputPose();
+        odom.pose.covariance = matrixEigenToMsg(pose.position_orientation_cov);
+        tf::quaternionEigenToMsg(pose.orientation, odom.pose.pose.orientation);
+        tf::pointEigenToMsg(pose.position, odom.pose.pose.position);
+
+        const auto twist = filter_.getOutputTwistInIMUFrame();
+        odom.twist.covariance = matrixEigenToMsg(twist.linear_angular_cov);
+        tf::vectorEigenToMsg(twist.angular, odom.twist.twist.angular);
+        tf::vectorEigenToMsg(twist.linear,  odom.twist.twist.linear);
+
+        pub_odometry_.publish(odom);
 
         /*
-         * Publishing the second IMU transform
+         * IMU message
+         */
+        sensor_msgs::Imu imu;
+        imu.header.frame_id = odom.child_frame_id;
+        imu.header.stamp.fromSec(filter_.getTimestamp());
+
+        imu.angular_velocity_covariance = matrixEigenToMsg(Matrix3(twist.linear_angular_cov.block<3, 3>(3, 3)));
+        imu.orientation_covariance = matrixEigenToMsg(Matrix3(pose.position_orientation_cov.block<3, 3>(3, 3)));
+
+        imu.orientation = odom.pose.pose.orientation;
+        tf::vectorEigenToMsg(twist.angular, imu.angular_velocity);
+
+        {
+            const auto accel_and_cov = filter_.getOutputAcceleration();
+            tf::vectorEigenToMsg(accel_and_cov.first, imu.linear_acceleration);
+            imu.linear_acceleration_covariance = matrixEigenToMsg(accel_and_cov.second);
+        }
+
+        pub_imu_.publish(imu);
+
+        /*
+         * World --> IMU transform
          */
         geometry_msgs::TransformStamped tf;
-        tf.header.frame_id = "base_link";
-        tf.header.stamp = msg.header.stamp;
-        tf.child_frame_id = msg.header.frame_id;
-        tf.transform.rotation = msg.orientation;
-        tf.transform.translation.x = 0.5;            // Add an offset to improve visualization
+        tf.header = odom.header;
+        tf.child_frame_id = odom.child_frame_id;
+
+        tf.transform.rotation = odom.pose.pose.orientation;
+        tf::vectorEigenToMsg(pose.position, tf.transform.translation);
+
         pub_tf_.sendTransform(tf);
     }
 
-    void cbImu(const IMUSample& sample)
+    void cbImu(const IMUSample& sample, const sensor_msgs::Imu& msg)
     {
-        if (filter_.getTimestamp() >= sample.timestamp.toSec())
+        if (filter_.getTimestamp() >= (sample.timestamp.toSec() + 0.3))  // TODO: get rid of this later
         {
             ROS_WARN_THROTTLE(1, "IMU update from the past [%f sec]",
                               filter_.getTimestamp() - sample.timestamp.toSec());
             return;
         }
-
-        /*
-         * Publishing the original IMU transform
-         */
-        geometry_msgs::TransformStamped tf;
-        tf.header.frame_id = "base_link";
-        tf.header.stamp = sample.timestamp;
-        tf.child_frame_id = "zubax_posekf_in";
-        tf::quaternionEigenToMsg(sample.orientation, tf.transform.rotation);
-        pub_tf_.sendTransform(tf);
 
         /*
          * Filter update
@@ -97,22 +130,12 @@ class FilterWrapper
         filter_.performAccelUpdate(sample.accel, sample.accel_covariance);
         filter_.performGyroUpdate(sample.gyro, sample.gyro_covariance);
 
-        publishEstimations();
+        const std::string body_frame_id = msg.header.frame_id.empty() ? "base_link" : msg.header.frame_id;
+        publishEstimations(body_frame_id);
     }
 
     void cbGnss(const GNSSLocalPosVel& local, const gps_common::GPSFix&)
     {
-        /*
-         * Publishing the location transform
-         */
-        geometry_msgs::TransformStamped tf;
-        tf.header.frame_id = "world";
-        tf.header.stamp = local.timestamp + ros::Duration().fromSec(0.1);
-        tf.child_frame_id = "base_link";
-        tf.transform.rotation.w = 1.0;
-        tf::vectorEigenToMsg(local.position, tf.transform.translation);
-        pub_tf_.sendTransform(tf);
-
         if (filter_.getTimestamp() >= (local.timestamp.toSec() + 0.3))  // TODO: get rid of this later
         {
             ROS_WARN_THROTTLE(1, "GNSS update from the past [%f sec]",
@@ -129,8 +152,6 @@ class FilterWrapper
         filter_.performTimeUpdate(local.timestamp.toSec());
         filter_.performGNSSPosUpdate(local.position, local.position_covariance);
         filter_.performGNSSVelUpdate(local.velocity, local.velocity_covariance);
-
-        publishEstimations();
     }
 
 public:
@@ -141,9 +162,11 @@ public:
         gnss_provider_.on_sample = std::bind(&FilterWrapper::cbGnss, this,
                                              std::placeholders::_1, std::placeholders::_2);
 
-        imu_provider_.on_sample = std::bind(&FilterWrapper::cbImu, this, std::placeholders::_1);
+        imu_provider_.on_sample = std::bind(&FilterWrapper::cbImu, this,
+                                            std::placeholders::_1, std::placeholders::_2);
 
-        pub_imu_ = node.advertise<sensor_msgs::Imu>("out", 10);
+        pub_odometry_ = node.advertise<nav_msgs::Odometry>("out_odom", 10);
+        pub_imu_ = node.advertise<sensor_msgs::Imu>("out_imu", 10);
 
         ROS_INFO("FilterWrapper inited");
     }

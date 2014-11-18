@@ -18,7 +18,49 @@
 
 namespace zubax_posekf
 {
+/**
+ * Filter output - twist; compatible with geometry_msgs/TwistWithCovariance.
+ * - Velocity of IMU in the world frame, transformed into the IMU frame
+ * - Angular velocity of IMU in the IMU frame
+ * - Covariance: x, y, z, rotation about X axis, rotation about Y axis, rotation about Z axis
+ */
+struct Twist
+{
+    Vector3 linear;
+    Vector3 angular;
+    Matrix<6, 6> linear_angular_cov;
 
+    Twist()
+    {
+        linear.setZero();
+        angular.setZero();
+        linear_angular_cov.setZero();
+    }
+};
+
+/**
+ * Filter output - pose; compatible with geometry_msgs/PoseWithCovariance.
+ * - Position of IMU in the world frame
+ * - Orientation of IMU in the world frame
+ * - Covariance: x, y, z, rotation about X axis, rotation about Y axis, rotation about Z axis
+ */
+struct Pose
+{
+    Vector3 position;
+    Quaternion orientation;
+    Matrix<6, 6> position_orientation_cov;
+
+    Pose()
+    {
+        position.setZero();
+        orientation.setIdentity();
+        position_orientation_cov.setZero();
+    }
+};
+
+/**
+ * The business end.
+ */
 class Filter
 {
     DebugPublisher debug_pub_;
@@ -261,24 +303,49 @@ public:
 
     Scalar getTimestamp() const { return state_timestamp_; }
 
-    std::pair<Quaternion, Matrix3> getOutputOrientation() const
+    /**
+     * Pose, compatible with geometry_msgs/PoseWithCovariance
+     */
+    Pose getOutputPose() const
     {
-        const auto q = state_.qwi();
-        const Matrix<3, 4> G = quaternionToEulerJacobian(q);
+        Pose out;
+
+        out.position = state_.pwi();
+        out.orientation = state_.qwi();
+
+        const Matrix<3, 4> G = quaternionToEulerJacobian(out.orientation);
         const Matrix4 C = P_.block<4, 4>(StateVector::Idx::qwiw, StateVector::Idx::qwiw);
-        const Matrix3 R = G * C * G.transpose();
-        return {q, R};
+
+        out.position_orientation_cov.block<3, 3>(0, 0) = P_.block<3, 3>(StateVector::Idx::pwix, StateVector::Idx::pwix);
+        out.position_orientation_cov.block<3, 3>(3, 3) = G * C * G.transpose();
+
+        return out;
     }
 
-    std::pair<Vector3, Matrix3> getOutputAngularVelocity() const
+    /**
+     * Twist, compatible with geometry_msgs/TwistWithCovariance
+     */
+    Twist getOutputTwistInIMUFrame() const
     {
-        return { state_.w(), P_.block<3, 3>(StateVector::Idx::ax, StateVector::Idx::ax) };
+        Twist out;
+        out.linear = rotateVectorByQuaternion(state_.vwi(), state_.qwi());  // World --> IMU
+        out.angular = state_.w();
+
+        const Matrix3 G = rotateVectorByQuaternionJacobian(state_.qwi());
+        const Matrix3 C = P_.block<3, 3>(StateVector::Idx::vwix, StateVector::Idx::vwix);
+
+        out.linear_angular_cov.block<3, 3>(0, 0) = G * C * G.transpose();
+        out.linear_angular_cov.block<3, 3>(3, 3) = P_.block<3, 3>(StateVector::Idx::wx,   StateVector::Idx::wx);
+
+        return out;
     }
 
-    /// Gravity compensated
+    /**
+     * Gravity compensated acceleration in IMU frame with covariance
+     */
     std::pair<Vector3, Matrix3> getOutputAcceleration() const
     {
-        return { state_.a(), P_.block<3, 3>(StateVector::Idx::wx, StateVector::Idx::wx) };
+        return { state_.a(), P_.block<3, 3>(StateVector::Idx::ax, StateVector::Idx::ax) };
     }
 };
 

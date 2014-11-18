@@ -1,0 +1,34 @@
+<!-- Copyright (c) 2014 Zubax, zubax.com -->
+<!-- Please refer to the file LICENSE for terms and conditions. -->
+<!-- Author: Pavel Kirienko <pavel.kirienko@zubax.com> -->
+
+<launch>
+    <!-- Filter rosrun zubax_posekf posekf imu:=/dev/imu/data gnss:=/dev/gnss/fix -->
+    <node name="zubax_posekf" pkg="zubax_posekf" type="posekf" output="screen"
+          clear_params="true" required="true">
+
+        <remap from="imu" to="/dev/imu/data" />
+        <remap from="gnss" to="/dev/gnss/fix" />
+    </node>
+
+    <!-- Ground truth transformer -->
+    <node name="ground_truth_transformer" pkg="zubax_posekf" type="odometry_frame_transformer.py" output="screen"
+          clear_params="true" required="true">
+
+        <remap from="odom_in" to="/odom_gt" />
+        <remap from="odom_out" to="/ground_truth" />
+
+        <param name="child_frame_id" value="ground_truth" />
+        <param name="rotation_yaw"   value="185" />
+    </node>
+
+    <!-- Convariance injector -->
+    <node name="covariance_injector" pkg="zubax_posekf" type="covariance_injector.py" output="screen"
+          clear_params="true" required="true">
+
+        <remap from="imu_in" to="/imu" />
+        <remap from="gnss_in" to="/gps" />
+        <remap from="imu_out" to="/dev/imu/data" />
+        <remap from="gnss_out" to="/dev/gnss/fix" />
+    </node>
+</launch>

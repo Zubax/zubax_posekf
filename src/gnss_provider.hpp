@@ -208,7 +208,8 @@ class GNSSProvider
         if ((R(0, 0) <= 0) || (R(1, 1) <= 0) || (R(2, 2) <= 0) || !std::isfinite(R.sum()))
         {
             std::ostringstream os;
-            os << "GNSS R vel:\n" << R << "\nGNSS R polar:\n" << Rpolar;
+            os << "GNSS R vel:\n" << R << "\nGNSS R polar:\n" << Rpolar << "\nGNSS G polar:\n" << Gpolar
+                << "\ntrack=" << gnssTrack << "\nspeed=" << gnssSpeed;
             throw Exception(os.str());
         }
 

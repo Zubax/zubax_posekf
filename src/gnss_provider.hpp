@@ -108,7 +108,8 @@ class GNSSProvider
 {
     const Scalar DefaultTrackStdevDeg = 30.0;
     const Scalar DefaultClimbRateStdevMS = 4.0;
-    const Scalar MaxSaneSpeedMS = 515.0;
+    const Scalar MaxSaneSpeedMS = 515.0;        // ITAR limit, used for sanity checks
+    const Scalar MinSpeedMS = 1e-3;
 
     ros::Subscriber sub_gnss_;
     DebugPublisher pub_debug_;
@@ -203,9 +204,20 @@ class GNSSProvider
         }
 
         // Convariance transformation Jacobian
-        const auto Gpolar = List(List(gnssSpeed * Cos(gnssTrack), Sin(gnssTrack), 0),
-                                 List(-(gnssSpeed * Sin(gnssTrack)), Cos(gnssTrack), 0),
-                                 List(0, 0, 1));
+        Matrix3 Gpolar;
+        {
+            /*
+             * Special case: if speed ~= track ~= 0, the Jacobian produces zero variance for the longitudinal speed:
+             *  0  0   0
+             *  0 svar 0
+             *  0  0  cvar
+             * Zero variances aren't allowed by the filter.
+             */
+            const Scalar speed = (gnssSpeed > MinSpeedMS) ? gnssSpeed : MinSpeedMS; // Work around
+            Gpolar = List(List(  speed * Cos(gnssTrack),  Sin(gnssTrack), 0),
+                          List(-(speed * Sin(gnssTrack)), Cos(gnssTrack), 0),
+                          List(0,                         0,              1));
+        }
 
         const Matrix3 R = Gpolar * Rpolar * Gpolar.transpose();
 

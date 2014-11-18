@@ -8,7 +8,7 @@ generateCPPConstantFromRule[Rule[x_,y_]] :=
 generateCPPExpressionWithCSE[varName_String, expr_, indent_: "    "] :=
  formatCPPCode[
   Module[{optimizedExpr, cseRules, constants, newline = "\n" <> indent},
-   {optimizedExpr, cseRules} = hoistCommonSubexpressions[FullSimplify[expr], varName <> "cse"];
+   {optimizedExpr, cseRules} = hoistCommonSubexpressions[Simplify[expr], varName <> "cse"];
    constants = StringJoin @@ Riffle[generateCPPConstantFromRule /@ cseRules, newline];
    "using namespace mathematica;" <> newline <>
    constants <> newline <>

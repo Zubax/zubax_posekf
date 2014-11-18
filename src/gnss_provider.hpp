@@ -218,6 +218,20 @@ class GNSSProvider
     void cbGnss(const gps_common::GPSFix& msg)
     {
         /*
+         * Drop invalid messages
+         */
+        {
+            const bool has_fix = msg.status.status >= msg.status.STATUS_FIX;
+            const bool sats_ok = msg.status.satellites_used > 3;
+            if (!has_fix || !sats_ok)
+            {
+                ROS_DEBUG("GNSS Provider: Message dropped: status=%d, nsats=%d",
+                          msg.status.status, msg.status.satellites_used);
+                return;
+            }
+        }
+
+        /*
          * Initialize origin if necessary
          */
         if (!origin_set_)

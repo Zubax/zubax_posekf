@@ -226,7 +226,7 @@ public:
         debug_pub_.publish("dt", dt);
         if (dt <= 0)
         {
-            ROS_ERROR("Time update: Nonpositive dt [%f]", dt);
+            ROS_WARN_THROTTLE(1, "Time update: Nonpositive dt [%f]", dt);
             return;
         }
         state_timestamp_ = timestamp;

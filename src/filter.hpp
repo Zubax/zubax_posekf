@@ -107,7 +107,10 @@ class Filter
         debug_pub_.publish("P", P_);
         debug_pub_.publish("Q", Q_);
 
-        debug_pub_.publish("qvw_rpy_deg", quaternionToEuler(state_.qvw()) / mathematica::Degree);
+        debug_pub_.publish("P_diag", Vector<StateVector::Size>(P_.diagonal()));
+
+        debug_pub_.publish("pvw", state_.pvw());
+        debug_pub_.publish("qvw_rpy_deg", Vector3(quaternionToEuler(state_.qvw()) / mathematica::Degree));
 
         enforce("Non-finite states",
                 std::isfinite(state_.x.sum()) &&

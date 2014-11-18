@@ -120,6 +120,7 @@ class GNSSProvider
 
     struct Config
     {
+        int min_sats = 0;
         int min_sats_to_init_origin = 0;
         double max_err_horz_to_init_origin = 40.0;
 
@@ -127,12 +128,15 @@ class GNSSProvider
         {
             ros::NodeHandle node("~gnss");
 
+            (void)node.getParam("min_sats", min_sats);
             (void)node.getParam("min_sats_to_init_origin", min_sats_to_init_origin);
             (void)node.getParam("max_err_horz_to_init_origin", max_err_horz_to_init_origin);
 
             ROS_INFO("GNSS Provider:\n"
+                     "\t~gnss/min_sats                    = %d\n"
                      "\t~gnss/min_sats_to_init_origin     = %d\n"
                      "\t~gnss/max_err_horz_to_init_origin = %f",
+                     min_sats,
                      min_sats_to_init_origin,
                      max_err_horz_to_init_origin);
         }
@@ -223,7 +227,7 @@ class GNSSProvider
          */
         {
             const bool has_fix = msg.status.status >= msg.status.STATUS_FIX;
-            const bool sats_ok = msg.status.satellites_used > 3;
+            const bool sats_ok = msg.status.satellites_used >= config_.min_sats;
             if (!has_fix || !sats_ok)
             {
                 ROS_DEBUG("GNSS Provider: Message dropped: status=%d, nsats=%d",

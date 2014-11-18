@@ -176,8 +176,8 @@ class Filter
 
         normalizeAndCheck();
 
-        std::cout << "P:\n" << P_.format(Eigen::IOFormat(2)) << "\n" << std::endl;
-        std::cout << "x:\n" << state_.x.transpose().format(Eigen::IOFormat(2)) << "\n" << std::endl;
+//        std::cout << "P:\n" << P_.format(Eigen::IOFormat(2)) << "\n" << std::endl;
+//        std::cout << "x:\n" << state_.x.transpose().format(Eigen::IOFormat(2)) << "\n" << std::endl;
     }
 
 public:

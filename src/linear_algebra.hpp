@@ -47,10 +47,11 @@ inline Quaternion quaternionFromEuler(const Vector3& roll_pitch_yaw)
         cj * cs - sj * sc);  // z
 }
 
-inline Vector3 quaternionToEuler(const Quaternion& q)
+inline Vector3 quaternionToEuler(Quaternion q)
 {
     //return q.toRotationMatrix().eulerAngles(0, 1, 2);
 
+    q.normalize();
     const Scalar qw = q.w();
     const Scalar qx = q.x();
     const Scalar qy = q.y();
@@ -73,8 +74,9 @@ inline Quaternion computeDeltaQuaternion(const Quaternion& from, const Quaternio
  * Ref. "Development of a Real-Time Attitude System Using a Quaternion
  * Parameterization and Non-Dedicated GPS Receivers" - John B. Schleppe (page 69)
  */
-inline Matrix<3, 4> quaternionToEulerJacobian(const Quaternion& q)
+inline Matrix<3, 4> quaternionToEulerJacobian(Quaternion q)
 {
+    q.normalize();
     const Scalar qw = q.w();
     const Scalar qx = q.x();
     const Scalar qy = q.y();

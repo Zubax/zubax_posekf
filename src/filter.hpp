@@ -63,11 +63,10 @@ struct Pose
  */
 class Filter
 {
-    DebugPublisher debug_pub_;
+    mutable DebugPublisher debug_pub_;
 
     StateVector state_;
     Matrix<StateVector::Size, StateVector::Size> P_;
-    Matrix<StateVector::Size, StateVector::Size> Q_;
 
     const Scalar MaxGyroDrift = 0.1;
     const Scalar MaxAccelDrift = 2.0;
@@ -77,6 +76,8 @@ class Filter
 
     Scalar state_timestamp_ = 0.0;
     bool initialized_ = false;
+
+    bool vis_tracking_ok_ = false;
 
     static Vector3 constrainPerComponent(Vector3 vec, const Scalar limit, const char* name)
     {
@@ -92,6 +93,9 @@ class Filter
 
     void normalizeAndCheck()
     {
+        /*
+         * x
+         */
         state_.normalize();
 
         state_.bw(constrainPerComponent(state_.bw(), MaxGyroDrift, "gyro drift"));
@@ -100,25 +104,49 @@ class Filter
 
         state_.w(constrainPerComponent(state_.w(), MaxAngularVelocity, "angular velocity"));
 
-        // P validation
+        /*
+         * P
+         */
         if (!validateAndFixCovarianceMatrix(P_, MaxCovariance, MinVariance))
         {
             ROS_ERROR_STREAM_THROTTLE(1, "Matrix P has been fixed\n" << P_.format(Eigen::IOFormat(2)));
         }
 
+        /*
+         * Publishing the internal filter states for debugging
+         */
         debug_pub_.publish("x", state_.x);
         debug_pub_.publish("P_diag", Vector<StateVector::Size>(P_.diagonal()));
-        debug_pub_.publish("Q_diag", Vector<StateVector::Size>(Q_.diagonal()));
 
         debug_pub_.publish("pvw", state_.pvw());
         debug_pub_.publish("qvw_rpy_deg", Vector3(quaternionToEuler(state_.qvw()) / mathematica::Degree));
 
         enforce("Non-finite states",
                 std::isfinite(state_.x.sum()) &&
-                std::isfinite(P_.sum()) &&
-                std::isfinite(Q_.sum()));
+                std::isfinite(P_.sum()));
 
         enforce("Invalid timestamp", std::isfinite(state_timestamp_) && (state_timestamp_ > 0.0));
+    }
+
+    Matrix<StateVector::Size, StateVector::Size> computeQ(double dt) const
+    {
+        Vector<StateVector::Size> Qdiag = StateVector::Qmindiag();
+
+        if (!vis_tracking_ok_)
+        {
+            ROS_INFO_THROTTLE(1, "Filter: Visual offset is unobservable now");
+
+            const Scalar variance = 999;  // TODO: Estimate heuristically - depends on vwi and w
+
+            Qdiag.block<3, 1>(StateVector::Idx::pvwx, 0) = Vector3::Ones() * variance;
+            Qdiag.block<4, 1>(StateVector::Idx::qvww, 0) = Vector<4>::Ones() * variance;
+        }
+
+        Qdiag *= dt * dt;
+
+        debug_pub_.publish("Q_diag", Qdiag);
+
+        return Qdiag.asDiagonal();
     }
 
     template <int NumDims>
@@ -196,10 +224,6 @@ public:
         // Initial P
         P_.setZero();
         P_ = StateVector::Pinitdiag().asDiagonal();
-
-        // Initial Q
-        // TODO: runtime Q estimation
-        Q_ = StateVector::Qmindiag().asDiagonal();
     }
 
     bool isInitialized() const { return initialized_; }
@@ -216,7 +240,6 @@ public:
         normalizeAndCheck();
 
         ROS_INFO_STREAM("Initial P:\n" << P_.format(Eigen::IOFormat(2)));
-        ROS_INFO_STREAM("Initial Q:\n" << Q_.format(Eigen::IOFormat(2)));
         ROS_INFO_STREAM("Initial x:\n" << state_.x.transpose().format(Eigen::IOFormat(2)));
     }
 
@@ -244,7 +267,7 @@ public:
 
         state_.x = state_.f(dt);
 
-        P_ = F * P_ * F.transpose() + Q_ * dt * dt;
+        P_ = F * P_ * F.transpose() + computeQ(dt);
 
         normalizeAndCheck();
 
@@ -293,11 +316,9 @@ public:
         performMeasurementUpdate(y, cov, state_.Hvisatt(), "visatt");
     }
 
-    void overrideVisOffsetUncertainty(Scalar scalar = 999)
+    void setVisTrackingOK(bool value)
     {
-        // TODO: special Q if the visual odometer is lost
-        P_.block<3, 3>(StateVector::Idx::pvwx, StateVector::Idx::pvwx) = Matrix3::Identity() * scalar;
-        P_.block<4, 4>(StateVector::Idx::qvww, StateVector::Idx::qvww) = Matrix4::Identity() * scalar;
+        vis_tracking_ok_ = value;
     }
 
     Scalar getTimestamp() const { return state_timestamp_; }

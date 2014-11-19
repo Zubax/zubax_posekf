@@ -164,15 +164,11 @@ class FilterWrapper
             filter_.performTimeUpdate(sample.timestamp.toSec());
         }
 
+        filter_.setVisTrackingOK(sample.pose_valid);
         if (sample.pose_valid)
         {
             filter_.performVisPosUpdate(sample.position, Matrix3(sample.position_orientation_cov.block<3, 3>(0, 0)));
             filter_.performVisAttUpdate(sample.orientation, Matrix3(sample.position_orientation_cov.block<3, 3>(3, 3)));
-        }
-        else
-        {
-            filter_.overrideVisOffsetUncertainty();
-            ROS_WARN_THROTTLE(1, "Visual offsets invalidated");
         }
 
         if (sample.velocity_valid)

@@ -115,6 +115,7 @@ class GNSSProvider
     DebugPublisher pub_debug_;
 
     GeoLonLat origin_;
+    double origin_altitude_ = 0.0;
     bool origin_set_ = false;
 
     GNSSLocalPosVel last_sample_;
@@ -160,7 +161,7 @@ class GNSSProvider
         Vector3 pos;
         pos[0] = metric[0];
         pos[1] = metric[1];
-        pos[2] = msg.altitude;
+        pos[2] = msg.altitude - origin_altitude_;
 
         Matrix3 cov;
         cov.setZero();
@@ -267,6 +268,7 @@ class GNSSProvider
             {
                 origin_.lon = msg.longitude;
                 origin_.lat = msg.latitude;
+                origin_altitude_ = msg.altitude;
                 origin_set_ = true;
                 ROS_INFO("GNSS Provider: Origin at lon=%f, lat=%f", origin_.lon, origin_.lat);
             }
@@ -317,9 +319,6 @@ public:
     }
 
     GNSSLocalPosVel getLastSample() const { return last_sample_; }
-
-    GeoLonLat getOrigin() const { return origin_; }
-    bool isOriginSet() const { return origin_set_; }
 
     std::function<void (const GNSSLocalPosVel&, const gps_common::GPSFix&)> on_sample;
 };

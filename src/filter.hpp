@@ -285,31 +285,21 @@ public:
 
     void performVisAttUpdate(const Quaternion& z, const Matrix3& cov)
     {
-        // TODO FIXME get back to this later - proper quaternion fusion
-        const Quaternion yq = z;
-        //const Quaternion yq = z * state_.hvisatt().inverse();
+        const Vector3 y = quaternionToEuler(z) - state_.hvisatt();
 
-        Vector<4> y;
-        y[0] = yq.w();
-        y[1] = yq.x();
-        y[2] = yq.y();
-        y[3] = yq.z();
+//        Eigen::IOFormat format(4, 0, ", ", " ", "{", "} Degree");
+//        std::cout << "z = " << Matrix<1, 3>(quaternionToEuler(z) / mathematica::Degree).format(format) << std::endl;
+//        std::cout << "h = " << Matrix<1, 3>(state_.hvisatt() / mathematica::Degree).format(format) << std::endl;
+//        std::cout << "y = " << Matrix<1, 3>(y / mathematica::Degree).format(format) << std::endl;
 
-        /*
-         * Covariance transformation
-         */
-        const Matrix<4, 3> G = quaternionFromEulerJacobian(quaternionToEuler(z));
-        const auto R = static_cast<Matrix<4, 4> >(G * cov * G.transpose());
-
-        performMeasurementUpdate(y, R, state_.Hvisatt(), "visatt");
-
-        debug_pub_.publish("visatt_R", R);
+        performMeasurementUpdate(y, cov, state_.Hvisatt(), "visatt");
     }
 
     void invalidateVisOffsets()
     {
-        P_.block<3, 3>(StateVector::Idx::pvwx, StateVector::Idx::pvwx) = Matrix3::Identity() * 9999.0;
-        P_.block<4, 4>(StateVector::Idx::qvww, StateVector::Idx::qvww) = Matrix4::Identity() * 9999.0;
+        // TODO: special Q if the visual odometer is lost
+        P_.block<3, 3>(StateVector::Idx::pvwx, StateVector::Idx::pvwx) = Matrix3::Identity() * 999.0;
+        P_.block<4, 4>(StateVector::Idx::qvww, StateVector::Idx::qvww) = Matrix4::Identity() * 999.0;
     }
 
     Scalar getTimestamp() const { return state_timestamp_; }

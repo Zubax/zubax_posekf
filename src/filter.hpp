@@ -71,19 +71,20 @@ class Filter
 
     const Scalar MaxGyroDrift = 0.1;
     const Scalar MaxAccelDrift = 2.0;
+    const Scalar MaxAngularVelocity = M_PI * 2;
     const Scalar MaxCovariance = 1e9;
     const Scalar MinVariance = 1e-9;
 
     Scalar state_timestamp_ = 0.0;
     bool initialized_ = false;
 
-    static Vector3 constrainDrift(Vector3 vec, const Scalar limit, const char* name)
+    static Vector3 constrainPerComponent(Vector3 vec, const Scalar limit, const char* name)
     {
         for (int i = 0; i < 3; i++)
         {
             if (!checkRangeAndConstrainSymmetric(vec[i], limit))
             {
-                ROS_WARN_THROTTLE(1, "Drift is too high [%s]", name);
+                ROS_WARN_THROTTLE(1, "Too high - %s", name);
             }
         }
         return vec;
@@ -93,9 +94,11 @@ class Filter
     {
         state_.normalize();
 
-        state_.bw(constrainDrift(state_.bw(), MaxGyroDrift, "gyro"));
+        state_.bw(constrainPerComponent(state_.bw(), MaxGyroDrift, "gyro drift"));
 
-        state_.ba(constrainDrift(state_.ba(), MaxAccelDrift, "accel"));
+        state_.ba(constrainPerComponent(state_.ba(), MaxAccelDrift, "accel drift"));
+
+        state_.w(constrainPerComponent(state_.w(), MaxAngularVelocity, "angular velocity"));
 
         // P validation
         if (!validateAndFixCovarianceMatrix(P_, MaxCovariance, MinVariance))
@@ -282,12 +285,9 @@ public:
 
     void performVisAttUpdate(const Quaternion& z, const Matrix3& cov)
     {
-        /*
-         * Residual computation
-         */
-        const Quaternion h = state_.hvisatt();
-
-        const Quaternion yq = z * h.inverse();  // Weiss 2012, eq. 3.45 ~ 3.46
+        // TODO FIXME get back to this later - proper quaternion fusion
+        const Quaternion yq = z;
+        //const Quaternion yq = z * state_.hvisatt().inverse();
 
         Vector<4> y;
         y[0] = yq.w();
@@ -304,6 +304,12 @@ public:
         performMeasurementUpdate(y, R, state_.Hvisatt(), "visatt");
 
         debug_pub_.publish("visatt_R", R);
+    }
+
+    void invalidateVisOffsets()
+    {
+        P_.block<3, 3>(StateVector::Idx::pvwx, StateVector::Idx::pvwx) = Matrix3::Identity() * 9999.0;
+        P_.block<4, 4>(StateVector::Idx::qvww, StateVector::Idx::qvww) = Matrix4::Identity() * 9999.0;
     }
 
     Scalar getTimestamp() const { return state_timestamp_; }

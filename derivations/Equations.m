@@ -61,13 +61,14 @@ printMatrixByName @ "normx";
  * Q is the speed of covariance growth, units per second
  *)
 Qmindiag = ConstantArray[0,Length[x]];
-Qmindiag[[1;;10]] = ConstantArray[10^-4,10];
-Qmindiag[[11;;22]] = ConstantArray[10^1,12];
-Qmindiag[[29;;35]] = ConstantArray[10^2,7];
+Qmindiag[[1;;10]] = ConstantArray[1000,10];
+Qmindiag[[11;;22]] = ConstantArray[100,12];
+Qmindiag[[29;;35]] = ConstantArray[1,7];
 
 Pinitdiag = ConstantArray[10^3,Length[x]];
-Pinitdiag[[11;;22]] = ConstantArray[10^-1,12];
+Pinitdiag[[11;;22]] = ConstantArray[10,12];
 Pinitdiag[[23;;28]] = ConstantArray[10^-3,6];
+Pinitdiag[[29;;35]] = ConstantArray[10,7];
 
 printMatrixByName /@ {"Qmindiag", "Pinitdiag"};
 
@@ -84,7 +85,7 @@ makeMeasurementPrediction["gyro", w + bw];
 makeMeasurementPrediction["gnsspos", pwi];
 makeMeasurementPrediction["gnssvel", vwi];
 
-makeMeasurementPrediction["vispos", rotateVectorByQuaternion[pwi + rotateVectorByQuaternion[pvw, qvw], qwi]];
+makeMeasurementPrediction["vispos", pwi + rotateVectorByQuaternion[pvw, Conjugate[qvw]]];
 makeMeasurementPrediction["visatt", qwi ** qvw];
 
 makeMeasurementPrediction["climbrate", {vwi[[3]]}];

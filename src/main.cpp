@@ -123,6 +123,7 @@ class FilterWrapper
          */
         if (!filter_.isInitialized())
         {
+//            filter_.initialize(sample.timestamp.toSec(), quaternionFromEuler(Vector3::Zero()));
             filter_.initialize(sample.timestamp.toSec(),
                                quaternionFromEuler(Vector3(0, 0, M_PI / 2.0)) * sample.orientation);
             return;
@@ -138,13 +139,6 @@ class FilterWrapper
 
     void cbGnss(const GNSSLocalPosVel& local, const gps_common::GPSFix&)
     {
-        if (filter_.getTimestamp() >= (local.timestamp.toSec() + 0.3))  // TODO: get rid of this later
-        {
-            ROS_WARN_THROTTLE(1, "GNSS update from the past [%f sec]",
-                              filter_.getTimestamp() - local.timestamp.toSec());
-            return;
-        }
-
         if (!filter_.isInitialized())
         {
             ROS_WARN_THROTTLE(1, "GNSS update skipped - not inited yet");
@@ -159,20 +153,21 @@ class FilterWrapper
     void cbVisual(const VisualSample& sample, const CameraTransform& transform)
     {
         (void)transform;
-        if (filter_.getTimestamp() >= (sample.timestamp.toSec() + 0.3))  // TODO: get rid of this later
-        {
-            ROS_WARN_THROTTLE(1, "Visual update from the past [%f sec]",
-                              filter_.getTimestamp() - sample.timestamp.toSec());
-            return;
-        }
-
         if (!filter_.isInitialized())
         {
             ROS_WARN_THROTTLE(1, "Visual update skipped - not inited yet");
             return;
         }
 
+        if (!sample.valid)
+        {
+            filter_.invalidateVisOffsets();
+            ROS_WARN_THROTTLE(1, "Visual offsets invalidated");
+            return;
+        }
+
         filter_.performTimeUpdate(sample.timestamp.toSec());
+
         filter_.performVisPosUpdate(sample.position, Matrix3(sample.position_orientation_cov.block<3, 3>(0, 0)));
         filter_.performVisAttUpdate(sample.orientation, Matrix3(sample.position_orientation_cov.block<3, 3>(3, 3)));
     }

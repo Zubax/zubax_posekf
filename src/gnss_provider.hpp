@@ -270,7 +270,8 @@ class GNSSProvider
                 origin_.lat = msg.latitude;
                 origin_altitude_ = msg.altitude;
                 origin_set_ = true;
-                ROS_INFO("GNSS Provider: Origin at lon=%f, lat=%f", origin_.lon, origin_.lat);
+                ROS_INFO("GNSS Provider: Origin at lon=%f, lat=%f, alt=%f",
+                         origin_.lon, origin_.lat, origin_altitude_);
             }
             else
             {

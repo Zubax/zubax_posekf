@@ -26,6 +26,8 @@ struct VisualSample
 {
     ros::Time timestamp;
 
+    bool valid = false;
+
     Vector3 position;
     Quaternion orientation;
     Matrix<6, 6> position_orientation_cov;
@@ -58,6 +60,8 @@ struct CameraTransform
  */
 class VisualProvider
 {
+    const Scalar MaxValidVariance = 999;
+
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
     ros::Subscriber sub_odom_;
@@ -81,18 +85,18 @@ class VisualProvider
             return;
         }
 
-        if (msg.pose.covariance[0] <= 0)
-        {
-            ROS_WARN_THROTTLE(1, "VisualProvider: Skip due to invalid covariance");
-            return;
-        }
-
         VisualSample sample;
         sample.timestamp = msg.header.stamp;
         sample.position_orientation_cov = matrixMsgToEigen<6, 6>(msg.pose.covariance);
 
         tf::pointMsgToEigen(msg.pose.pose.position, sample.position);
         tf::quaternionMsgToEigen(msg.pose.pose.orientation, sample.orientation);
+
+        sample.valid = (msg.pose.covariance[0] > 0) && (msg.pose.covariance[0] < MaxValidVariance);
+        if (!sample.valid)
+        {
+            ROS_WARN_THROTTLE(1, "VisualProvider: Invalid sample");
+        }
 
         if (on_sample)
         {

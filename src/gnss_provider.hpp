@@ -124,8 +124,8 @@ class GNSSProvider
         int min_sats = 0;
         int min_sats_to_init_origin = 0;
         double max_err_horz_to_init_origin = 40.0;
-        double position_cov_mult = 3.0;            ///< TODO: heuristic covariance estimation
-        double velocity_cov_mult = 3.0;
+        double position_cov_mult = 1.0;            ///< TODO: heuristic covariance estimation
+        double velocity_cov_mult = 1.0;
 
         Config()
         {

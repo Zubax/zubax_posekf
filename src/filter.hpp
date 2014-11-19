@@ -107,10 +107,8 @@ class Filter
         }
 
         debug_pub_.publish("x", state_.x);
-        debug_pub_.publish("P", P_);
-        debug_pub_.publish("Q", Q_);
-
         debug_pub_.publish("P_diag", Vector<StateVector::Size>(P_.diagonal()));
+        debug_pub_.publish("Q_diag", Vector<StateVector::Size>(Q_.diagonal()));
 
         debug_pub_.publish("pvw", state_.pvw());
         debug_pub_.publish("qvw_rpy_deg", Vector3(quaternionToEuler(state_.qvw()) / mathematica::Degree));
@@ -246,7 +244,7 @@ public:
 
         state_.x = state_.f(dt);
 
-        P_ = F * P_ * F.transpose() + Q_ * dt;
+        P_ = F * P_ * F.transpose() + Q_ * dt * dt;
 
         normalizeAndCheck();
 

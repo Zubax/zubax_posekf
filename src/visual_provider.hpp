@@ -26,17 +26,26 @@ struct VisualSample
 {
     ros::Time timestamp;
 
-    bool valid = false;
+    bool pose_valid = false;
+    bool velocity_valid = false;
 
     Vector3 position;
     Quaternion orientation;
     Matrix<6, 6> position_orientation_cov;
+
+    Vector3 linear_velocity;
+    Vector3 angular_velocity;
+    Matrix<6, 6> linear_angular_cov;
 
     VisualSample()
     {
         position.setZero();
         orientation.setIdentity();
         position_orientation_cov.setZero();
+
+        linear_velocity.setZero();
+        angular_velocity.setZero();
+        linear_angular_cov.setZero();
     }
 };
 
@@ -87,17 +96,38 @@ class VisualProvider
 
         VisualSample sample;
         sample.timestamp = msg.header.stamp;
+
+        /*
+         * Pose
+         */
         sample.position_orientation_cov = matrixMsgToEigen<6, 6>(msg.pose.covariance);
 
         tf::pointMsgToEigen(msg.pose.pose.position, sample.position);
         tf::quaternionMsgToEigen(msg.pose.pose.orientation, sample.orientation);
 
-        sample.valid = (msg.pose.covariance[0] > 0) && (msg.pose.covariance[0] < MaxValidVariance);
-        if (!sample.valid)
+        sample.pose_valid = (msg.pose.covariance[0] > 0) && (msg.pose.covariance[0] < MaxValidVariance);
+        if (!sample.pose_valid)
         {
-            ROS_WARN_THROTTLE(1, "VisualProvider: Invalid sample");
+            ROS_WARN_THROTTLE(1, "VisualProvider: Invalid pose");
         }
 
+        /*
+         * Twist
+         */
+        sample.linear_angular_cov = matrixMsgToEigen<6, 6>(msg.twist.covariance);
+
+        tf::vectorMsgToEigen(msg.twist.twist.linear, sample.linear_velocity);
+        tf::vectorMsgToEigen(msg.twist.twist.angular, sample.angular_velocity);
+
+        sample.velocity_valid = (msg.twist.covariance[0] > 0) && (msg.twist.covariance[0] < MaxValidVariance);
+        if (!sample.velocity_valid)
+        {
+            ROS_WARN_THROTTLE(1, "VisualProvider: Invalid velocity");
+        }
+
+        /*
+         * Output
+         */
         if (on_sample)
         {
             on_sample(sample, camera_transform_);

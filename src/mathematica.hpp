@@ -102,6 +102,9 @@ template <typename T> inline decltype(std::asin(T())) ArcSin(T x) { return std::
 template <typename T> inline decltype(std::acos(T())) ArcCos(T x) { return std::acos(x); }
 template <typename T> inline decltype(std::atan(T())) ArcTan(T x) { return std::atan(x); }
 
+/// X,Y swapped!
+template <typename X, typename Y> inline decltype(std::atan2(Y(), X())) ArcTan(X x, Y y) { return std::atan2(y, x); }
+
 template <typename T> inline decltype(std::sinh(T())) Sinh(T x) { return std::sinh(x); }
 template <typename T> inline decltype(std::cosh(T())) Cosh(T x) { return std::cosh(x); }
 template <typename T> inline decltype(std::tanh(T())) Tanh(T x) { return std::tanh(x); }

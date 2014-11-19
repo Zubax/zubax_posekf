@@ -49,7 +49,17 @@ inline Quaternion quaternionFromEuler(const Vector3& roll_pitch_yaw)
 
 inline Vector3 quaternionToEuler(const Quaternion& q)
 {
-    return q.toRotationMatrix().eulerAngles(0, 1, 2);
+    //return q.toRotationMatrix().eulerAngles(0, 1, 2);
+
+    const Scalar qw = q.w();
+    const Scalar qx = q.x();
+    const Scalar qy = q.y();
+    const Scalar qz = q.z();
+
+    using namespace mathematica;
+    return List(List(ArcTan(1 - 2 * (Power(qx, 2) + Power(qy, 2)), 2 * (qw * qx + qy * qz))),
+                List(ArcSin(2 * (qw * qy - qx * qz))),
+                List(ArcTan(1 - 2 * (Power(qy, 2) + Power(qz, 2)), 2 * (qx * qy + qw * qz))));
 }
 
 inline Quaternion computeDeltaQuaternion(const Quaternion& from, const Quaternion& to)

@@ -61,9 +61,13 @@ printMatrixByName @ "normx";
  * Q is the speed of covariance growth, units per second
  *)
 Qmindiag = ConstantArray[0,Length[x]];
-Qmindiag[[1;;10]] = ConstantArray[10,10];
-Qmindiag[[11;;22]] = ConstantArray[1000,12];
-Qmindiag[[29;;35]] = ConstantArray[100,7];
+Qmindiag[[1;;3]] = ConstantArray[1, 3]; (* pos *)
+Qmindiag[[4;;6]] = ConstantArray[10, 3]; (* vel *)
+Qmindiag[[7;;10]] = ConstantArray[0.1, 4]; (* att *)
+Qmindiag[[11;;16]] = ConstantArray[1000, 6]; (* a w *)
+Qmindiag[[17;;22]] = ConstantArray[10000, 6]; (* jerks *)
+(* Accel/gyro biases don't drift over time *)
+Qmindiag[[29;;35]] = ConstantArray[100, 7]; (* visual frame offsets *)
 
 Pinitdiag = ConstantArray[0.01,Length[x]];
 Pinitdiag[[11;;22]] = ConstantArray[100,12];

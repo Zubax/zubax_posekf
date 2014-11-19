@@ -283,23 +283,23 @@ public:
         performMeasurementUpdate(y, cov, state_.Hvispos(), "vispos");
     }
 
+    void performVisVelUpdate(const Vector3& vel, const Matrix3& cov)
+    {
+        const Vector3 y = vel - state_.hvisvel();
+        performMeasurementUpdate(y, cov, state_.Hvisvel(), "visvel");
+    }
+
     void performVisAttUpdate(const Quaternion& z, const Matrix3& cov)
     {
         const Vector3 y = quaternionToEuler(z) - state_.hvisatt();
-
-//        Eigen::IOFormat format(4, 0, ", ", " ", "{", "} Degree");
-//        std::cout << "z = " << Matrix<1, 3>(quaternionToEuler(z) / mathematica::Degree).format(format) << std::endl;
-//        std::cout << "h = " << Matrix<1, 3>(state_.hvisatt() / mathematica::Degree).format(format) << std::endl;
-//        std::cout << "y = " << Matrix<1, 3>(y / mathematica::Degree).format(format) << std::endl;
-
         performMeasurementUpdate(y, cov, state_.Hvisatt(), "visatt");
     }
 
-    void invalidateVisOffsets()
+    void overrideVisOffsetUncertainty(Scalar scalar = 999)
     {
         // TODO: special Q if the visual odometer is lost
-        P_.block<3, 3>(StateVector::Idx::pvwx, StateVector::Idx::pvwx) = Matrix3::Identity() * 999.0;
-        P_.block<4, 4>(StateVector::Idx::qvww, StateVector::Idx::qvww) = Matrix4::Identity() * 999.0;
+        P_.block<3, 3>(StateVector::Idx::pvwx, StateVector::Idx::pvwx) = Matrix3::Identity() * scalar;
+        P_.block<4, 4>(StateVector::Idx::qvww, StateVector::Idx::qvww) = Matrix4::Identity() * scalar;
     }
 
     Scalar getTimestamp() const { return state_timestamp_; }

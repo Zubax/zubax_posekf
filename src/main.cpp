@@ -159,17 +159,27 @@ class FilterWrapper
             return;
         }
 
-        if (!sample.valid)
+        if (sample.pose_valid || sample.velocity_valid)
         {
-            filter_.invalidateVisOffsets();
-            ROS_WARN_THROTTLE(1, "Visual offsets invalidated");
-            return;
+            filter_.performTimeUpdate(sample.timestamp.toSec());
         }
 
-        filter_.performTimeUpdate(sample.timestamp.toSec());
+        if (sample.pose_valid)
+        {
+            filter_.performVisPosUpdate(sample.position, Matrix3(sample.position_orientation_cov.block<3, 3>(0, 0)));
+            filter_.performVisAttUpdate(sample.orientation, Matrix3(sample.position_orientation_cov.block<3, 3>(3, 3)));
+        }
+        else
+        {
+            filter_.overrideVisOffsetUncertainty();
+            ROS_WARN_THROTTLE(1, "Visual offsets invalidated");
+        }
 
-        filter_.performVisPosUpdate(sample.position, Matrix3(sample.position_orientation_cov.block<3, 3>(0, 0)));
-        filter_.performVisAttUpdate(sample.orientation, Matrix3(sample.position_orientation_cov.block<3, 3>(3, 3)));
+        if (sample.velocity_valid)
+        {
+            filter_.performVisVelUpdate(sample.linear_velocity,
+                                        Matrix3(sample.linear_angular_cov.block<3, 3>(0, 0)) * 100);
+        }
     }
 
 public:

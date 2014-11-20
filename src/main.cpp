@@ -26,6 +26,7 @@ class FilterWrapper
     {
         std::string fixed_frame_id = "world";
         std::string body_frame_id = "";       ///< Empty means autodetect (IMU frame)
+        std::string gnss_odom_frame_id = "";  ///< Empty means disabled
 
         Config()
         {
@@ -33,18 +34,22 @@ class FilterWrapper
 
             (void)node.getParam("fixed_frame_id", fixed_frame_id);
             (void)node.getParam("body_frame_id", body_frame_id);
+            (void)node.getParam("gnss_odom_frame_id", gnss_odom_frame_id);
 
             ROS_INFO("Filter:\n"
-                     "\t~fixed_frame_id = %s\n"
-                     "\t~body_frame_id = %s",
+                     "\t~fixed_frame_id     = %s\n"
+                     "\t~body_frame_id      = %s\n"
+                     "\t~gnss_odom_frame_id = %s",
                      fixed_frame_id.c_str(),
-                     body_frame_id.empty() ? "<derive from IMU>" : body_frame_id.c_str());
+                     body_frame_id.empty() ? "<derive from IMU>" : body_frame_id.c_str(),
+                     gnss_odom_frame_id.empty() ? "<disabled>" : gnss_odom_frame_id.c_str());
         }
     } const config_;
 
     mutable tf2_ros::TransformBroadcaster pub_tf_;
     mutable ros::Publisher pub_odometry_;
     mutable ros::Publisher pub_imu_;
+    mutable ros::Publisher pub_gnss_odom_;
 
     Filter filter_;
     GNSSProvider gnss_provider_;
@@ -141,6 +146,21 @@ class FilterWrapper
         filter_.performTimeUpdate(local.timestamp.toSec());
         filter_.performGNSSPosUpdate(local.position, local.position_covariance);
         filter_.performGNSSVelUpdate(local.velocity, local.velocity_covariance);
+
+        /*
+         * Display this GNSS measurement as an Odometry message
+         */
+        if (!config_.gnss_odom_frame_id.empty())
+        {
+            nav_msgs::Odometry odom;
+            odom.header.frame_id = config_.fixed_frame_id;
+            odom.header.stamp = local.timestamp;
+            odom.child_frame_id = config_.gnss_odom_frame_id;
+            tf::pointEigenToMsg(local.position, odom.pose.pose.position);
+            tf::quaternionEigenToMsg(Quaternion::FromTwoVectors(Vector3(1, 0, 0), local.velocity),
+                                     odom.pose.pose.orientation);
+            pub_gnss_odom_.publish(odom);
+        }
     }
 
     void cbVisual(const VisualSample& sample, const CameraTransform& transform)
@@ -187,6 +207,7 @@ public:
 
         pub_odometry_ = node.advertise<nav_msgs::Odometry>("out_odom", 10);
         pub_imu_ = node.advertise<sensor_msgs::Imu>("out_imu", 10);
+        pub_gnss_odom_ = node.advertise<nav_msgs::Odometry>("gnss_odom", 10);
 
         ROS_INFO("FilterWrapper inited");
     }

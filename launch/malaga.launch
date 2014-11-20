@@ -9,6 +9,8 @@
 
         <remap from="imu" to="/dev/imu/data" />
         <remap from="gnss" to="/dev/gnss/fix" />
+
+        <param name="gnss_odom_frame_id" value="gnss_odom" />
     </node>
 
     <!-- Ground truth transformer -->

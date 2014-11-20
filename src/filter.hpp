@@ -348,7 +348,7 @@ public:
     Twist getOutputTwistInIMUFrame() const
     {
         Twist out;
-        out.linear = rotateVectorByQuaternion(state_.vwi(), state_.qwi());  // World --> IMU
+        out.linear = rotateVectorByQuaternion(state_.vwi(), state_.qwi().inverse());  // World --> IMU
         out.angular = state_.w();
 
         const Matrix3 G = rotateVectorByQuaternionJacobian(state_.qwi());

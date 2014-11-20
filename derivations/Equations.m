@@ -90,7 +90,7 @@ makeMeasurementPrediction["gnsspos", pwi];
 makeMeasurementPrediction["gnssvel", vwi];
 
 makeMeasurementPrediction["vispos", pwi + rotateVectorByQuaternion[pvw, Conjugate[qvw]]];
-makeMeasurementPrediction["visvel", rotateVectorByQuaternion[vwi, qwi]];
+makeMeasurementPrediction["visvel", rotateVectorByQuaternion[vwi, Conjugate[qwi]]];
 makeMeasurementPrediction["visatt", eulerFromQuaternion[qwi ** qvw]];
 
 makeMeasurementPrediction["climbrate", {vwi[[3]]}];

@@ -52,6 +52,8 @@ class FilterWrapper
     mutable ros::Publisher pub_gnss_odom_;
     mutable ros::Publisher pub_marker_;
 
+    mutable DebugPublisher debug_pub_;
+
     Filter filter_;
     GNSSProvider gnss_provider_;
     IMUProvider imu_provider_;
@@ -128,6 +130,9 @@ class FilterWrapper
 
         const std::string body_frame_id = msg.header.frame_id.empty() ? "base_link" : msg.header.frame_id;
         publishEstimations(body_frame_id);
+
+        debug_pub_.publish("imu_rpy_deg", quaternionToEuler(sample.orientation) / mathematica::Degree);
+        debug_pub_.publish("out_rpy_deg", quaternionToEuler(filter_.getOutputPose().orientation) / mathematica::Degree);
     }
 
     void cbGnss(const GNSSLocalPosVel& local, const gps_common::GPSFix&)

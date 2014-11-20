@@ -103,6 +103,8 @@ class FilterWrapper
                                                         twist.linear, {1, 0, 1, 0.6}));
             pub_marker_.publish(makeVectorVisualization(odom.header.stamp, body_frame_id, 2,
                                                         filter_.getOutputAcceleration().first, {1, 1, 0, 0.3}));
+            pub_marker_.publish(makeVectorVisualization(odom.header.stamp, config_.fixed_frame_id, 3,
+                                                        filter_.getOutputTwistInWorldFrame().linear, {1, 1, 1}));
         }
     }
 

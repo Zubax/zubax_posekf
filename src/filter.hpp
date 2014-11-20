@@ -361,6 +361,21 @@ public:
     }
 
     /**
+     * Twist in the world frame
+     */
+    Twist getOutputTwistInWorldFrame() const
+    {
+        Twist out;
+        out.linear = state_.vwi();
+        out.angular = state_.w();
+
+        out.linear_angular_cov.block<3, 3>(0, 0) = P_.block<3, 3>(StateVector::Idx::vwix, StateVector::Idx::vwix);
+        out.linear_angular_cov.block<3, 3>(3, 3) = P_.block<3, 3>(StateVector::Idx::wx,   StateVector::Idx::wx);
+
+        return out;
+    }
+
+    /**
      * Gravity compensated acceleration in IMU frame with covariance
      */
     std::pair<Vector3, Matrix3> getOutputAcceleration() const

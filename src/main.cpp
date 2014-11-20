@@ -110,13 +110,6 @@ class FilterWrapper
 
     void cbImu(const IMUSample& sample, const sensor_msgs::Imu& msg)
     {
-        if (filter_.getTimestamp() >= (sample.timestamp.toSec() + 0.3))  // TODO: get rid of this later
-        {
-            ROS_WARN_THROTTLE(1, "IMU update from the past [%f sec]",
-                              filter_.getTimestamp() - sample.timestamp.toSec());
-            return;
-        }
-
         /*
          * Filter update
          * TODO: proper initialization
@@ -173,8 +166,7 @@ class FilterWrapper
 
         if (sample.velocity_valid)
         {
-            filter_.performVisVelUpdate(sample.linear_velocity,
-                                        Matrix3(sample.linear_angular_cov.block<3, 3>(0, 0)) * 100);
+            filter_.performVisVelUpdate(sample.linear_velocity, Matrix3(sample.linear_angular_cov.block<3, 3>(0, 0)));
         }
     }
 

@@ -9,6 +9,7 @@
 
         <remap from="imu" to="/dev/imu/data" />
         <remap from="gnss" to="/dev/gnss/fix" />
+        <remap from="visual_odom" to="/visual_odom" />
 
         <param name="gnss_odom_frame_id" value="gnss_odom" />
     </node>

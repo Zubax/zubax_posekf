@@ -67,7 +67,7 @@ Qmindiag[[7;;10]] = ConstantArray[1, 4]; (* att *)
 Qmindiag[[11;;16]] = ConstantArray[1000, 6]; (* a w *)
 Qmindiag[[17;;22]] = ConstantArray[10000, 6]; (* jerks *)
 (* Accel/gyro biases don't drift over time *)
-Qmindiag[[29;;35]] = ConstantArray[100, 7]; (* visual frame offsets *)
+Qmindiag[[29;;35]] = ConstantArray[0.1, 7]; (* visual frame offsets *)
 
 Pinitdiag = ConstantArray[0.01,Length[x]];
 Pinitdiag[[11;;22]] = ConstantArray[100,12];

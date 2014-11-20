@@ -8,6 +8,7 @@
 
 #include <ros/ros.h>
 #include <eigen3/Eigen/Eigen>
+#include <visualization_msgs/Marker.h>
 #include <cmath>
 #include "mathematica.hpp"
 
@@ -279,6 +280,43 @@ inline boost::array<Scalar, Rows * Cols> matrixEigenToMsg(const Eigen::Matrix<Sc
     boost::array<Scalar, Rows * Cols> array;
     std::copy_n(row_major.data(), Rows * Cols, array.begin());
     return array;
+}
+
+/**
+ * Constructs a visualization_msgs::Marker for a given vector.
+ *
+ * The color is optional and can contain up to 4 elements in the following order:
+ *   red, green, blue, alpha
+ * Default color is black with 100% opacity.
+ */
+inline visualization_msgs::Marker makeVectorVisualization(const ros::Time& timestamp,
+                                                          const std::string& frame_id,
+                                                          const int marker_id,
+                                                          const Vector3& vector,
+                                                          const std::initializer_list<float>& color_rgba = {})
+{
+    visualization_msgs::Marker marker;
+    marker.header.stamp = timestamp;
+    marker.header.frame_id = frame_id;
+
+    marker.ns = ros::this_node::getName();
+    marker.id = marker_id;
+
+    marker.type = marker.ARROW;
+
+    tf::quaternionEigenToMsg(Quaternion::FromTwoVectors(Vector3(1, 0, 0), vector),
+                             marker.pose.orientation);
+
+    marker.scale.x = vector.norm();
+    marker.scale.y = marker.scale.z = marker.scale.x * 0.1;
+
+    auto color_it = std::begin(color_rgba);
+    marker.color.r = (color_rgba.size() > 0) ? *color_it++ : 0.F;
+    marker.color.g = (color_rgba.size() > 1) ? *color_it++ : 0.F;
+    marker.color.b = (color_rgba.size() > 2) ? *color_it++ : 0.F;
+    marker.color.a = (color_rgba.size() > 3) ? *color_it++ : 1.F;
+
+    return marker;
 }
 
 }

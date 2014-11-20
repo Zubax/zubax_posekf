@@ -8,6 +8,7 @@
 #include <eigen_conversions/eigen_msg.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
+#include <visualization_msgs/Marker.h>
 #include "gnss_provider.hpp"
 #include "imu_provider.hpp"
 #include "visual_provider.hpp"
@@ -48,8 +49,8 @@ class FilterWrapper
 
     mutable tf2_ros::TransformBroadcaster pub_tf_;
     mutable ros::Publisher pub_odometry_;
-    mutable ros::Publisher pub_imu_;
     mutable ros::Publisher pub_gnss_odom_;
+    mutable ros::Publisher pub_marker_;
 
     Filter filter_;
     GNSSProvider gnss_provider_;
@@ -80,37 +81,29 @@ class FilterWrapper
         pub_odometry_.publish(odom);
 
         /*
-         * IMU message
-         */
-        sensor_msgs::Imu imu;
-        imu.header.frame_id = odom.child_frame_id;
-        imu.header.stamp.fromSec(filter_.getTimestamp());
-
-        imu.angular_velocity_covariance = matrixEigenToMsg(Matrix3(twist.linear_angular_cov.block<3, 3>(3, 3)));
-        imu.orientation_covariance = matrixEigenToMsg(Matrix3(pose.position_orientation_cov.block<3, 3>(3, 3)));
-
-        imu.orientation = odom.pose.pose.orientation;
-        tf::vectorEigenToMsg(twist.angular, imu.angular_velocity);
-
-        {
-            const auto accel_and_cov = filter_.getOutputAcceleration();
-            tf::vectorEigenToMsg(accel_and_cov.first, imu.linear_acceleration);
-            imu.linear_acceleration_covariance = matrixEigenToMsg(accel_and_cov.second);
-        }
-
-        pub_imu_.publish(imu);
-
-        /*
          * World --> IMU transform
          */
-        geometry_msgs::TransformStamped tf;
-        tf.header = odom.header;
-        tf.child_frame_id = odom.child_frame_id;
+        {
+            geometry_msgs::TransformStamped tf;
+            tf.header = odom.header;
+            tf.child_frame_id = odom.child_frame_id;
 
-        tf.transform.rotation = odom.pose.pose.orientation;
-        tf::vectorEigenToMsg(pose.position, tf.transform.translation);
+            tf.transform.rotation = odom.pose.pose.orientation;
+            tf::vectorEigenToMsg(pose.position, tf.transform.translation);
 
-        pub_tf_.sendTransform(tf);
+            pub_tf_.sendTransform(tf);
+        }
+
+        /*
+         * Visualization
+         */
+        if (pub_marker_.getNumSubscribers() > 0)
+        {
+            pub_marker_.publish(makeVectorVisualization(odom.header.stamp, body_frame_id, 1,
+                                                        twist.linear, {1, 0, 1, 0.6}));
+            pub_marker_.publish(makeVectorVisualization(odom.header.stamp, body_frame_id, 2,
+                                                        filter_.getOutputAcceleration().first, {1, 1, 0, 0.3}));
+        }
     }
 
     void cbImu(const IMUSample& sample, const sensor_msgs::Imu& msg)
@@ -206,8 +199,8 @@ public:
                                                std::placeholders::_1, std::placeholders::_2);
 
         pub_odometry_ = node.advertise<nav_msgs::Odometry>("out_odom", 10);
-        pub_imu_ = node.advertise<sensor_msgs::Imu>("out_imu", 10);
         pub_gnss_odom_ = node.advertise<nav_msgs::Odometry>("gnss_odom", 10);
+        pub_marker_ = node.advertise<visualization_msgs::Marker>("visualization_marker", 10);
 
         ROS_INFO("FilterWrapper inited");
     }

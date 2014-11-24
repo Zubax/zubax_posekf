@@ -1,4 +1,4 @@
-\documentclass[11pt,a4paper]{article}
+\documentclass[12pt,a4paper]{article}
 
 %\usepackage[T1]{fontenc}
 \usepackage[russian]{babel}
@@ -26,7 +26,7 @@
 
 \addbibresource{bibliography.bib}
 
-\setlength{\parskip}{1em}
+\setlength{\parskip}{0.5em}
 
 \title{Многоцелевой автономный малый беспилотный летательный аппарат}
 
@@ -127,14 +127,16 @@
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=1\textwidth]{disparity.jpg}
+    \includegraphics[width=0.8\textwidth]{disparity.jpg}
     \caption{\label{fig:disparity}Слева - изображение сцены, снятое левой камерой; справа - визуализация глубины сцены (ELAS).}
 \end{figure}
 
+На рисунке \ref{fig:octomap} показана визуализация октодерева трёхмерной модели помещения, построенная описанным методом. Оценка позиции и ориентации выполнялась по измерениям визуальной одометрии и БИНС. Разрешение модели - 15 см на воксель, цвет вокселя задаётся его высотой.
+
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.6\textwidth]{octomap.png}
-    \caption{\label{fig:octomap}Визуализация октодерева трёхмерной модели помещения, построенная описанным выше методом. Оценка позиции и ориентации выполнялась по измерениям визуальной одометрии и БИНС. Разрешение модели - 15 см на воксель, цвет вокселя задаётся его высотой.}
+    \includegraphics[width=0.5\textwidth]{octomap.png}
+    \caption{\label{fig:octomap}Визуализация модели помещения.}
 \end{figure}
 
 \section{Алгоритм оценки состояния МБПЛА}

@@ -6,6 +6,8 @@ SRC=main
 mkdir out &> /dev/null
 cp -fP *.bib out/ &> /dev/null
 
+rm out/$SRC.pdf
+
 pdflatex --halt-on-error --shell-escape -output-directory=out ../$SRC.tex
 cd out
 biber $SRC

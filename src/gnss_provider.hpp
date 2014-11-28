@@ -14,16 +14,15 @@
 #include "debug_publisher.hpp"
 #include "exception.hpp"
 #include "mathematica.hpp"
+#include "measurement.hpp"
 
 namespace zubax_posekf
 {
 /**
  * This is the representation that can be directly used by the filter.
  */
-struct GNSSLocalPosVel
+struct GNSSLocalPosVel : public Measurement
 {
-    ros::Time timestamp;
-
     Vector3 position;
     Matrix3 position_covariance;
 
@@ -38,8 +37,6 @@ struct GNSSLocalPosVel
         velocity.setZero();
         velocity_covariance.setZero();
     }
-
-    bool isValid() const { return timestamp.isValid(); }
 };
 
 /**

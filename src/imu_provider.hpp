@@ -11,16 +11,15 @@
 #include <eigen_conversions/eigen_msg.h>
 #include "linear_algebra.hpp"
 #include "exception.hpp"
+#include "measurement.hpp"
 
 namespace zubax_posekf
 {
 /**
  * Converted IMU data that can be directly supplied to the filter
  */
-struct IMUSample
+struct IMUSample : public Measurement
 {
-    ros::Time timestamp;
-
     Vector3 accel;
     Matrix3 accel_covariance;
 
@@ -39,8 +38,6 @@ struct IMUSample
 
         orientation.setIdentity();
     }
-
-    bool isValid() const { return timestamp.isValid(); }
 };
 
 /**

@@ -16,16 +16,15 @@
 #include "debug_publisher.hpp"
 #include "exception.hpp"
 #include "mathematica.hpp"
+#include "measurement.hpp"
 
 namespace zubax_posekf
 {
 /**
  * Visual input
  */
-struct VisualSample
+struct VisualSample : public Measurement
 {
-    ros::Time timestamp;
-
     bool pose_valid = false;
     bool velocity_valid = false;
 

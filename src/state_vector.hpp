@@ -34,6 +34,17 @@ struct StateVector
         x.setZero();
     }
 
+    StateVector(const StateVector& rhs)
+    {
+        x = rhs.x;
+    }
+
+    StateVector& operator=(const StateVector& rhs)
+    {
+        x = rhs.x;
+        return *this;
+    }
+
     static Vector<Size> Qmindiag()
     {
         <* generateCPPReturnExpressionWithCSE[Transpose@{Qmindiag}, "        "] *>

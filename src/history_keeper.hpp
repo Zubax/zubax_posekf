@@ -7,6 +7,7 @@
 #pragma once
 
 #include <map>
+#include <typeinfo>
 
 namespace zubax_posekf
 {
@@ -69,6 +70,12 @@ public:
         return --it;
     }
 
+    ConstIterator findAfter(double ts) const { return map_.upper_bound(ts); }
+    Iterator      findAfter(double ts)       { return map_.upper_bound(ts); }
+
+    ConstIterator findMatchingOrAfter(double ts) const { return map_.lower_bound(ts); }
+    Iterator      findMatchingOrAfter(double ts)       { return map_.lower_bound(ts); }
+
     enum class Availability { TooOld, Available, InFuture };
 
     Availability checkAvailability(double ts) const
@@ -84,13 +91,45 @@ public:
         return Availability::Available;
     }
 
+    /**
+     * Returns the iterator before end().
+     * @throws std::range_error if the history is empty.
+     */
+    ConstIterator getNewestWithCheck() const { return const_cast<HistoryKeeper<T>*>(this)->getNewestWithCheck(); }
+    Iterator getNewestWithCheck()
+    {
+        if (map_.empty())
+        {
+            throw std::range_error("Can't obtain the newest entry because the history is empty. Item type is: " +
+                                   std::string(typeid(T).name()));
+        }
+        return --std::end(map_);
+    }
+
+    /**
+     * Same as begin(), with range check.
+     * @throws std::range_error if the history is empty.
+     */
+    ConstIterator getOldestWithCheck() const { return const_cast<HistoryKeeper<T>*>(this)->getOldestWithCheck(); }
+    Iterator getOldestWithCheck()
+    {
+        if (map_.empty())
+        {
+            throw std::range_error("Can't obtain the oldest entry because the history is empty. Item type is: " +
+                                   std::string(typeid(T).name()));
+        }
+        return std::begin(map_);
+    }
+
     Iterator begin() { return std::begin(map_); }
     Iterator end()   { return std::end(map_); }
 
     ConstIterator begin() const { return std::begin(map_); }
     ConstIterator end()   const { return std::end(map_); }
 
-    unsigned size() const { static_cast<unsigned>(map_.size()); }
+    unsigned size() const { return static_cast<unsigned>(map_.size()); }
+
+    bool empty() const { return map_.empty(); }
 };
 
 }

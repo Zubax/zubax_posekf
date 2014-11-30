@@ -81,6 +81,7 @@ class VisualProvider
     {
         try
         {
+            // TODO: check the resulting frame_id
             // TODO: obtain the initial transform from odom to the IMU frame; let the filter refine it
 //            geometry_msgs::TransformStamped transform =
 //                tf_buffer_.lookupTransform(msg.child_frame_id, msg.header.frame_id, ros::Time(0));

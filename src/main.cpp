@@ -59,23 +59,43 @@ class FilterWrapper
     IMUProvider imu_provider_;
     VisualProvider visual_provider_;
 
+    void publishDebugInfo() const
+    {
+        const auto ts_state = filter_.getCurrentState();
+        const auto state = ts_state.second;
+
+        debug_pub_.publish("x", state.getStateVector().x);
+        debug_pub_.publish("P_diag", state.getCovariance().diagonal());
+
+        debug_pub_.publish("pvw", state.getStateVector().pvw());
+        debug_pub_.publish("qvw_rpy_deg",
+                           Vector3(quaternionToEuler(state.getStateVector().qvw()) / mathematica::Degree));
+
+        debug_pub_.publish("qwi_rpy_deg",
+                           Vector3(quaternionToEuler(state.getStateVector().qwi()) / mathematica::Degree));
+
+        debug_pub_.publish("dt", (ts_state.first - filter_.getPreviousState().first).toSec());
+    }
+
     void publishEstimations(const std::string& body_frame_id) const
     {
         /*
          * Main filter output - odometry message
          */
+        const auto ts_state = filter_.getCurrentState();
+
         nav_msgs::Odometry odom;
         odom.header.frame_id = config_.fixed_frame_id;     // Fixed frame name can be configured
-        odom.header.stamp.fromSec(filter_.getTimestamp());
+        odom.header.stamp = ts_state.first;
 
         odom.child_frame_id = config_.body_frame_id.empty() ? body_frame_id : config_.body_frame_id;
 
-        const auto pose = filter_.getOutputPose();
+        const auto pose = ts_state.second.getPose();
         odom.pose.covariance = matrixEigenToMsg(pose.position_orientation_cov);
         tf::quaternionEigenToMsg(pose.orientation, odom.pose.pose.orientation);
         tf::pointEigenToMsg(pose.position, odom.pose.pose.position);
 
-        const auto twist = filter_.getOutputTwistInIMUFrame();
+        const auto twist = ts_state.second.getTwistInIMUFrame();
         odom.twist.covariance = matrixEigenToMsg(twist.linear_angular_cov);
         tf::vectorEigenToMsg(twist.angular, odom.twist.twist.angular);
         tf::vectorEigenToMsg(twist.linear,  odom.twist.twist.linear);
@@ -104,9 +124,9 @@ class FilterWrapper
             pub_marker_.publish(makeVectorVisualization(odom.header.stamp, body_frame_id, 1,
                                                         twist.linear, {1, 0, 1, 0.6}));
             pub_marker_.publish(makeVectorVisualization(odom.header.stamp, body_frame_id, 2,
-                                                        filter_.getOutputAcceleration().first, {1, 1, 0, 0.3}));
+                                                        ts_state.second.getAcceleration().first, {1, 1, 0, 0.3}));
             pub_marker_.publish(makeVectorVisualization(odom.header.stamp, config_.fixed_frame_id, 3,
-                                                        filter_.getOutputTwistInWorldFrame().linear, {1, 1, 1}));
+                                                        ts_state.second.getTwistInWorldFrame().linear, {1, 1, 1}));
         }
     }
 
@@ -118,21 +138,31 @@ class FilterWrapper
          */
         if (!filter_.isInitialized())
         {
-//            filter_.initialize(sample.timestamp.toSec(), quaternionFromEuler(Vector3::Zero()));
-            filter_.initialize(sample.timestamp.toSec(),
-                               quaternionFromEuler(Vector3(0, 0, M_PI / 2.0)) * sample.orientation);
+            if (!gnss_provider_.getLastSample().isValid())
+            {
+                return;
+            }
+            filter_.initialize(sample.timestamp,
+                               quaternionFromEuler(Vector3(0, 0, M_PI / 2.0)) * sample.orientation,
+                               gnss_provider_.getLastSample().position,
+                               gnss_provider_.getLastSample().velocity);
             return;
         }
 
-        filter_.performTimeUpdate(sample.timestamp.toSec());
-        filter_.performAccelUpdate(sample.accel, sample.accel_covariance);
-        filter_.performGyroUpdate(sample.gyro, sample.gyro_covariance);
+        filter_.update(std::make_shared<IMUSample>(sample));
 
+        /*
+         * Filter output at IMU rate
+         */
         const std::string body_frame_id = msg.header.frame_id.empty() ? "base_link" : msg.header.frame_id;
         publishEstimations(body_frame_id);
 
+        /*
+         * Debug info
+         */
+        publishDebugInfo();
         debug_pub_.publish("imu_rpy_deg", quaternionToEuler(sample.orientation) / mathematica::Degree);
-        debug_pub_.publish("out_rpy_deg", quaternionToEuler(filter_.getOutputPose().orientation) / mathematica::Degree);
+        debug_pub_.publish("rewind_imu", filter_.computeHowManyUpdatesHappenedSince(sample.timestamp));
     }
 
     void cbGnss(const GNSSLocalPosVel& local, const gps_common::GPSFix&)
@@ -143,9 +173,7 @@ class FilterWrapper
             return;
         }
 
-        filter_.performTimeUpdate(local.timestamp.toSec());
-        filter_.performGNSSPosUpdate(local.position, local.position_covariance);
-        filter_.performGNSSVelUpdate(local.velocity, local.velocity_covariance);
+        filter_.update(std::make_shared<GNSSLocalPosVel>(local));
 
         /*
          * Display this GNSS measurement as an Odometry message
@@ -161,6 +189,8 @@ class FilterWrapper
                                      odom.pose.pose.orientation);
             pub_gnss_odom_.publish(odom);
         }
+
+        debug_pub_.publish("rewind_gnss", filter_.computeHowManyUpdatesHappenedSince(local.timestamp));
     }
 
     void cbVisual(const VisualSample& sample, const CameraTransform& transform)
@@ -172,22 +202,15 @@ class FilterWrapper
             return;
         }
 
-        if (sample.pose_valid || sample.velocity_valid)
+        if (!sample.pose_valid || !sample.velocity_valid)
         {
-            filter_.performTimeUpdate(sample.timestamp.toSec());
+            return;
         }
 
-        filter_.setVisTrackingOK(sample.pose_valid);
-        if (sample.pose_valid)
-        {
-            filter_.performVisPosUpdate(sample.position, Matrix3(sample.position_orientation_cov.block<3, 3>(0, 0)));
-            filter_.performVisAttUpdate(sample.orientation, Matrix3(sample.position_orientation_cov.block<3, 3>(3, 3)));
-        }
+        // TODO: how do we handle visual failures?
+        filter_.update(std::make_shared<VisualSample>(sample));
 
-        if (sample.velocity_valid)
-        {
-            filter_.performVisVelUpdate(sample.linear_velocity, Matrix3(sample.linear_angular_cov.block<3, 3>(0, 0)));
-        }
+        debug_pub_.publish("rewind_vis", filter_.computeHowManyUpdatesHappenedSince(sample.timestamp));
     }
 
 public:

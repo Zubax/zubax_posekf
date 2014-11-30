@@ -7,10 +7,13 @@
 #pragma once
 
 #include <unordered_map>
+#include <type_traits>
 #include <ros/ros.h>
 #include <std_msgs/Float64MultiArray.h>
 #include <geometry_msgs/Vector3.h>
 #include <std_msgs/Float64.h>
+#include <std_msgs/Int64.h>
+#include <std_msgs/UInt64.h>
 #include <eigen3/Eigen/Eigen>
 
 namespace zubax_posekf
@@ -87,10 +90,21 @@ public:
         publishROSMessage(name, msg);
     }
 
-    void publish(const std::string& name, const double scalar)
+    template <typename Scalar>
+    typename std::enable_if<std::is_floating_point<Scalar>::value>::type
+    publish(const std::string& name, Scalar scalar)
     {
         std_msgs::Float64 msg;
-        msg.data = scalar;
+        msg.data = static_cast<double>(scalar);
+        publishROSMessage(name, msg);
+    }
+
+    template <typename Scalar>
+    typename std::enable_if<std::is_integral<Scalar>::value>::type
+    publish(const std::string& name, Scalar scalar)
+    {
+        std_msgs::Int64 msg;
+        msg.data = static_cast<std::int64_t>(scalar);
         publishROSMessage(name, msg);
     }
 };

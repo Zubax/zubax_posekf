@@ -39,6 +39,10 @@ struct StateVector
         x = rhs.x;
     }
 
+    StateVector(const Vector<Size>& vec)
+        : x(vec)
+    { }
+
     StateVector& operator=(const StateVector& rhs)
     {
         x = rhs.x;

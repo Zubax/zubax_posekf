@@ -60,21 +60,67 @@ struct GeoLonLat
  */
 class GeoPositionConverter
 {
-    const Scalar MetersPerLatDegree = (110567.0 + 111699.0) * 0.5; // average from equator to poles
-    const Scalar MetersPerLonDegreeOnEquator = 111321.0;
+    static constexpr Scalar EarthRadiusMeters = 6372797.0;
 
     const GeoLonLat origin_;
 
-    Scalar latM2Deg(Scalar m) const { return m / MetersPerLatDegree; }
-    Scalar latDeg2M(Scalar d) const { return d * MetersPerLatDegree; }
-
-    Scalar lonMPerDeg(Scalar lat) const
+    Scalar greatCircleToMetric(Scalar angle) const
     {
-        return MetersPerLonDegreeOnEquator * ((90. - std::min(std::abs(lat), Scalar(89.999999))) / 90.);
+        // m = (earth_perimeter / 2PI) * angle
+        // m = ((2PI * earth_radius) / 2PI) * angle
+        // m = earth_radius * angle
+        return EarthRadiusMeters * angle;
     }
 
-    Scalar lonM2Deg(Scalar lat, Scalar m) const { return m / lonMPerDeg(lat); }
-    Scalar lonDeg2M(Scalar lat, Scalar d) const { return d * lonMPerDeg(lat); }
+    Scalar greatCircleAngle(const Vector3& a, const Vector3& b) const
+    {
+        using namespace std;
+        Scalar lat1, lon1, lat2, lon2;
+        decomposeLatLon(a, b, lat1, lon1, lat2, lon2);
+        Scalar t1 = sin((lat2-lat1) / 2.0);
+        t1 *= t1;
+        Scalar t2 = sin((lon2-lon1) / 2.0);
+        t2 *= t2;
+        return 2.0 * asin(sqrt(t1 + cos(lat1) * cos(lat2) * t2));
+    }
+
+    void decomposeLatLon(const Vector3& a, Scalar& lat1, Scalar& lon1) const
+    {
+        static const Scalar deg2rad = M_PI / 180.0;
+        lat1 = a.y() * deg2rad;
+        lon1 = a.x() * deg2rad;
+    }
+
+    void decomposeLatLon(const Vector3& a, const Vector3& b,
+                         Scalar& lat1, Scalar& lon1, Scalar& lat2, Scalar& lon2) const
+    {
+        decomposeLatLon(a, lat1, lon1);
+        decomposeLatLon(b, lat2, lon2);
+    }
+
+    Scalar genericDistance(const Vector3& a, const Vector3& b, bool plane) const
+    {
+        const Scalar Precision = 1e-9;
+
+        Scalar d_xy = 0.0;
+
+        if ((std::abs(a.x() - b.x()) > Precision) ||
+            (std::abs(a.y() - b.y()) > Precision))
+        {
+            const Scalar gca = greatCircleAngle(a, b);
+            d_xy = greatCircleToMetric(gca);
+        }
+
+        if (plane)
+        {
+            return d_xy;
+        }
+        else
+        {
+            const Scalar d_z = a.z() - b.z();
+            return std::sqrt(d_xy * d_xy + d_z * d_z);
+        }
+    }
 
 public:
     GeoPositionConverter(const GeoLonLat& arg_origin)
@@ -83,18 +129,21 @@ public:
 
     Vector<2> convertGeoToMetric(const GeoLonLat& geo) const
     {
-        Vector<2> metric;
-        metric[1] = latDeg2M(geo.lat - origin_.lat);          // lat, Y
-        metric[0] = lonDeg2M(geo.lat, geo.lon - origin_.lon); // lon, X
-        return metric;
-    }
+        const Vector3 origin_vector(origin_.lon, origin_.lat, 0.0);
 
-    GeoLonLat convertMetricToGeo(const Vector<2>& metric) const
-    {
-        GeoLonLat geo;
-        geo.lat = latM2Deg(metric[1]) + origin_.lat;          // lat, Y
-        geo.lon = lonM2Deg(geo.lat, metric[0]) + origin_.lon; // lon, X
-        return geo;
+        Scalar x = genericDistance(origin_vector, Vector3(geo.lon, origin_.lat, 0.0), true);
+        if (geo.lon < origin_.lon)
+        {
+            x *= -1.0;
+        }
+
+        Scalar y = genericDistance(origin_vector, Vector3(origin_.lon, geo.lat, 0.0), true);
+        if (geo.lat < origin_.lat)
+        {
+            y *= -1.0;
+        }
+
+        return Vector<2>(x, y);
     }
 };
 
@@ -112,7 +161,7 @@ class GNSSProvider
     DebugPublisher pub_debug_;
 
     GeoLonLat origin_;
-    double origin_altitude_ = 0.0;
+    Scalar origin_altitude_ = 0.0;
     bool origin_set_ = false;
 
     GNSSLocalPosVel last_sample_;

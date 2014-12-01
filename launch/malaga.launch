@@ -22,7 +22,7 @@
         <remap from="odom_out" to="/ground_truth" />
 
         <param name="child_frame_id" value="ground_truth" />
-        <param name="rotation_yaw"   value="185" />
+        <param name="rotation_yaw"   value="0" />
     </node>
 
     <!-- VO transformer -->
@@ -33,7 +33,7 @@
         <remap from="odom_out" to="/visual_odom_unbounded" />
 
         <param name="child_frame_id" value="visual_odom" />
-        <param name="rotation_yaw"   value="185" />
+        <param name="rotation_yaw"   value="0" />
     </node>
 
     <!-- Convariance injector -->
@@ -41,7 +41,7 @@
           clear_params="true" required="true">
 
         <remap from="imu_in" to="/imu" />
-        <remap from="gnss_in" to="/gps" />
+        <remap from="gnss_in" to="/gps2" />
         <remap from="imu_out" to="/dev/imu/data" />
         <remap from="gnss_out" to="/dev/gnss/fix" />
     </node>

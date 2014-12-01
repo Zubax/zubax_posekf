@@ -15,6 +15,7 @@
 #include "filter.hpp"
 #include "linear_algebra.hpp"
 #include "exception.hpp"
+#include "stopwatch.hpp"
 
 namespace zubax_posekf
 {
@@ -173,7 +174,10 @@ class FilterWrapper
             return;
         }
 
-        filter_.update(std::make_shared<GNSSLocalPosVel>(local));
+        {
+            StopwatchPrinter swp("gnss");
+            filter_.update(std::make_shared<GNSSLocalPosVel>(local));
+        }
 
         /*
          * Display this GNSS measurement as an Odometry message
@@ -207,8 +211,11 @@ class FilterWrapper
             return;
         }
 
-        // TODO: how do we handle visual failures?
-        filter_.update(std::make_shared<VisualSample>(sample));
+        {
+            StopwatchPrinter swp("visual");
+            // TODO: how do we handle visual failures?
+            filter_.update(std::make_shared<VisualSample>(sample));
+        }
 
         debug_pub_.publish("rewind_vis", filter_.computeHowManyUpdatesHappenedSince(sample.timestamp));
     }

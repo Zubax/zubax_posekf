@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(zubax_posekf)
 
+if(DEFINED CMAKE_BUILD_TYPE)
+   set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "Debug Release RelWithDebInfo MinSizeRel")
+else()
+   set(CMAKE_BUILD_TYPE Release CACHE STRING "Debug Release RelWithDebInfo MinSizeRel")
+endif()
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -99,6 +105,7 @@ catkin_package(
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra -Werror -pedantic")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmissing-declarations -Wcast-align -Wzero-as-null-pointer-constant")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wfloat-equal -Wconversion -Wsign-conversion")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native")
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations

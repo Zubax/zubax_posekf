@@ -126,6 +126,7 @@ public:
         // Initial state - zero everything, null rotations
         x.qwi(Quaternion(1, 0, 0, 0));
         x.qvw(Quaternion(1, 0, 0, 0));
+        x.lambda = 1.0;
 
         // Initial P
         P.setZero();
@@ -517,11 +518,7 @@ public:
 
         {
             const int dist = static_cast<int>(std::distance(meas_it, std::end(measurements_)));
-            ROS_WARN_COND(dist > 50, "Rewinding %d states", dist);
-            if (dist > 1)
-            {
-                std::cout << "Rewinding " << dist << std::endl;
-            }
+            ROS_WARN_COND(dist > 100, "Rewinding %d states", dist);
         }
 
         for (; meas_it != std::end(measurements_); ++meas_it)

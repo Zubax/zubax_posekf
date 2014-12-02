@@ -28,7 +28,8 @@ x = Join[
  defineSymbolicColumnVectorXYZ["X`ba"], (* 23, accelerometer bias *)
  defineSymbolicColumnVectorXYZ["X`bw"], (* 26, rate gyro bias *)
  defineSymbolicColumnVectorXYZ["X`pvw"],(* 29, visual --> world translation *)
- quaternionAsColumnVector[defineSymbolicQuaternion["X`qvw"]]]; (* 32, visual --> world rotation *)
+ quaternionAsColumnVector[defineSymbolicQuaternion["X`qvw"]], (* 32, visual --> world rotation *)
+ {{X`lambda}}];
 
 printMatrixByName["x"]
 
@@ -67,7 +68,9 @@ Qmindiag[[7;;10]] = ConstantArray[0.1, 4]; (* att *)
 Qmindiag[[11;;16]] = ConstantArray[100, 6]; (* a w *)
 Qmindiag[[17;;22]] = ConstantArray[1000, 6]; (* jerks *)
 (* Accel/gyro biases don't drift over time *)
-Qmindiag[[29;;35]] = ConstantArray[100, 7]; (* visual frame offsets *)
+Qmindiag[[29;;31]] = ConstantArray[100, 3]; (* visual frame linear offset *)
+Qmindiag[[32;;35]] = ConstantArray[1, 4]; (* visual frame angular offset *)
+Qmindiag[[36;;36]] = ConstantArray[1, 1]; (* visual scale *)
 
 Pinitdiag = ConstantArray[0.01,Length[x]];
 Pinitdiag[[11;;22]] = ConstantArray[100,12];
@@ -89,9 +92,9 @@ makeMeasurementPrediction["gyro", w + bw];
 makeMeasurementPrediction["gnsspos", pwi];
 makeMeasurementPrediction["gnssvel", vwi];
 
-makeMeasurementPrediction["vispos", pwi + rotateVectorByQuaternion[pvw, Conjugate[qvw]]];
-makeMeasurementPrediction["visvel", rotateVectorByQuaternion[vwi, Conjugate[qwi]]];
-makeMeasurementPrediction["visatt", eulerFromQuaternion[qwi ** qvw]];
+makeMeasurementPrediction["vispos", lambda rotateVectorByQuaternion[pwi + pvw, Conjugate[qvw]]];
+makeMeasurementPrediction["visvel", lambda rotateVectorByQuaternion[vwi, Conjugate[qwi]]];
+makeMeasurementPrediction["visatt", eulerFromQuaternion[qwi ** Conjugate[qvw]]];
 
 makeMeasurementPrediction["climbrate", {vwi[[3]]}];
 

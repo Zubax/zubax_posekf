@@ -61,13 +61,13 @@ printMatrixByName @ "normx";
  * Q is the speed of covariance growth, units per second
  *)
 Qmindiag = ConstantArray[0,Length[x]];
-Qmindiag[[1;;3]] = ConstantArray[100, 3]; (* pos *)
-Qmindiag[[4;;6]] = ConstantArray[1000, 3]; (* vel *)
-Qmindiag[[7;;10]] = ConstantArray[10, 4]; (* att *)
-Qmindiag[[11;;16]] = ConstantArray[10000, 6]; (* a w *)
-Qmindiag[[17;;22]] = ConstantArray[100000, 6]; (* jerks *)
+Qmindiag[[1;;3]] = ConstantArray[1, 3]; (* pos *)
+Qmindiag[[4;;6]] = ConstantArray[1, 3]; (* vel *)
+Qmindiag[[7;;10]] = ConstantArray[0.1, 4]; (* att *)
+Qmindiag[[11;;16]] = ConstantArray[100, 6]; (* a w *)
+Qmindiag[[17;;22]] = ConstantArray[1000, 6]; (* jerks *)
 (* Accel/gyro biases don't drift over time *)
-Qmindiag[[29;;35]] = ConstantArray[1000, 7]; (* visual frame offsets *)
+Qmindiag[[29;;35]] = ConstantArray[100, 7]; (* visual frame offsets *)
 
 Pinitdiag = ConstantArray[0.01,Length[x]];
 Pinitdiag[[11;;22]] = ConstantArray[100,12];
@@ -119,6 +119,9 @@ printMatrixByName["gnssVelocityLonLatClimbJacobian"];
 
 srcdir = FileNameJoin[{NotebookDirectory[], "..", "src"}];
 expandTemplateFiles[srcdir, {"*.cpp", "*.cc", "*.hpp", "*.h"}]
+
+
+
 
 
 

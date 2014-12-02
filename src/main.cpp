@@ -174,10 +174,7 @@ class FilterWrapper
             return;
         }
 
-        {
-            StopwatchPrinter swp("gnss");
-            filter_.update(std::make_shared<GNSSLocalPosVel>(local));
-        }
+        filter_.update(std::make_shared<GNSSLocalPosVel>(local));
 
         /*
          * Display this GNSS measurement as an Odometry message

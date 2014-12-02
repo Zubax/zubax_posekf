@@ -297,6 +297,8 @@ public:
     const StateVector& getStateVector() const { return x; }
 
     const Matrix<StateVector::Size, StateVector::Size>& getCovariance() const { return P; }
+
+    Matrix<StateVector::Size, StateVector::Size>& getCovariance() { return P; }
 };
 
 /**
@@ -344,11 +346,18 @@ class Filter
 
     static void updateFromVisual(FilterStateWithCovariance& state, const VisualSample* meas)
     {
-        // TODO: how do we handle visual failures?
+        if (meas->pose_valid)
         {
             const Vector3 y = meas->position - state.getStateVector().hvispos();
             const Matrix3 R = meas->position_orientation_cov.block<3, 3>(0, 0);
             state.performMeasurementUpdate(y, R, state.getStateVector().Hvispos(), "vispos");
+        }
+
+        if (meas->pose_valid)
+        {
+            const Vector3 y = quaternionToEuler(meas->orientation) - state.getStateVector().hvisatt();
+            const Matrix3 R = meas->position_orientation_cov.block<3, 3>(3, 3);
+            state.performMeasurementUpdate(y, R, state.getStateVector().Hvisatt(), "visatt");
         }
 
         if (meas->velocity_valid)
@@ -356,12 +365,6 @@ class Filter
             const Vector3 y = meas->linear_velocity - state.getStateVector().hvisvel();
             const Matrix3 R = meas->linear_angular_cov.block<3, 3>(0, 0);
             state.performMeasurementUpdate(y, R, state.getStateVector().Hvisvel(), "visvel");
-        }
-
-        {
-            const Vector3 y = quaternionToEuler(meas->orientation) - state.getStateVector().hvisatt();
-            const Matrix3 R = meas->position_orientation_cov.block<3, 3>(3, 3);
-            state.performMeasurementUpdate(y, R, state.getStateVector().Hvisatt(), "visatt");
         }
     }
 
@@ -429,6 +432,37 @@ public:
             --it;
         }
         return {ros::Time(it->first), it->second};
+    }
+
+    void invalidateVisualOffsetsSince(const ros::Time& ts)
+    {
+        const Scalar cov_growth = 100.0;                                // TODO estimate
+        const Matrix<3, 3> P_pvw = Matrix<3, 3>::Identity() * cov_growth;
+        const Matrix<4, 4> P_qvw = Matrix<4, 4>::Identity() * cov_growth;
+
+        auto state_it = states_.findBefore(ts.toSec());
+
+        state_it->second.getCovariance().block<3, 3>(StateVector::Idx::pvwx, StateVector::Idx::pvwx) += P_pvw;
+        state_it->second.getCovariance().block<4, 4>(StateVector::Idx::qvww, StateVector::Idx::qvww) += P_qvw;
+
+        while (true)
+        {
+            if (state_it == std::end(states_))
+            {
+                break;
+            }
+            const auto prev_it = state_it++;
+            if (state_it == std::end(states_))
+            {
+                break;
+            }
+
+            state_it->   second.getCovariance().block<3, 3>(StateVector::Idx::pvwx, StateVector::Idx::pvwx) =
+                prev_it->second.getCovariance().block<3, 3>(StateVector::Idx::pvwx, StateVector::Idx::pvwx) + P_pvw;
+
+            state_it->   second.getCovariance().block<4, 4>(StateVector::Idx::qvww, StateVector::Idx::qvww) =
+                prev_it->second.getCovariance().block<4, 4>(StateVector::Idx::qvww, StateVector::Idx::qvww) + P_qvw;
+        }
     }
 
     /**

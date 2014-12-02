@@ -203,14 +203,13 @@ class FilterWrapper
             return;
         }
 
-        if (!sample.pose_valid || !sample.velocity_valid)
+        if (!sample.pose_valid)
         {
-            return;
+            filter_.invalidateVisualOffsetsSince(sample.timestamp);
         }
 
         {
             StopwatchPrinter swp("visual");
-            // TODO: how do we handle visual failures?
             filter_.update(std::make_shared<VisualSample>(sample));
         }
 

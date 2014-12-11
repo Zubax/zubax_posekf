@@ -360,13 +360,6 @@ class Filter
             const Matrix3 R = meas->position_orientation_cov.block<3, 3>(3, 3);
             state.performMeasurementUpdate(y, R, state.getStateVector().Hvisatt(), "visatt");
         }
-
-        if (meas->velocity_valid)
-        {
-            const Vector3 y = meas->linear_velocity - state.getStateVector().hvisvel();
-            const Matrix3 R = meas->linear_angular_cov.block<3, 3>(0, 0);
-            state.performMeasurementUpdate(y, R, state.getStateVector().Hvisvel(), "visvel");
-        }
     }
 
     static void updateImpl(FilterStateWithCovariance& state, const std::shared_ptr<Measurement>& virtual_meas)

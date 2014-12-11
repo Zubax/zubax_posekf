@@ -93,7 +93,6 @@ makeMeasurementPrediction["gnsspos", pwi];
 makeMeasurementPrediction["gnssvel", vwi];
 
 makeMeasurementPrediction["vispos", lambda rotateVectorByQuaternion[pwi + pvw, Conjugate[qvw]]];
-makeMeasurementPrediction["visvel", lambda rotateVectorByQuaternion[vwi, Conjugate[qwi]]];
 makeMeasurementPrediction["visatt", eulerFromQuaternion[qwi ** Conjugate[qvw]]];
 
 makeMeasurementPrediction["climbrate", {vwi[[3]]}];
@@ -122,6 +121,9 @@ printMatrixByName["gnssVelocityLonLatClimbJacobian"];
 
 srcdir = FileNameJoin[{NotebookDirectory[], "..", "src"}];
 expandTemplateFiles[srcdir, {"*.cpp", "*.cc", "*.hpp", "*.h"}]
+
+
+
 
 
 

@@ -208,10 +208,7 @@ class FilterWrapper
             filter_.invalidateVisualOffsetsSince(sample.timestamp);
         }
 
-        {
-            StopwatchPrinter swp("visual");
-            filter_.update(std::make_shared<VisualSample>(sample));
-        }
+        filter_.update(std::make_shared<VisualSample>(sample));
 
         debug_pub_.publish("rewind_vis", filter_.computeHowManyUpdatesHappenedSince(sample.timestamp));
     }

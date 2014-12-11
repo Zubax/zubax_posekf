@@ -430,7 +430,7 @@ public:
 
     void invalidateVisualOffsetsSince(const ros::Time& ts)
     {
-        const Scalar cov_growth = 100.0;                                // TODO estimate
+        const Scalar cov_growth = 10.0;                                // TODO estimate
         const Matrix<3, 3> P_pvw = Matrix<3, 3>::Identity() * cov_growth;
         const Matrix<4, 4> P_qvw = Matrix<4, 4>::Identity() * cov_growth;
 

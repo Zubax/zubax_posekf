@@ -68,7 +68,7 @@ Qmindiag[[7;;10]] = ConstantArray[0.1, 4]; (* att *)
 Qmindiag[[11;;16]] = ConstantArray[100, 6]; (* a w *)
 Qmindiag[[17;;22]] = ConstantArray[1000, 6]; (* jerks *)
 (* Accel/gyro biases don't drift over time *)
-Qmindiag[[29;;31]] = ConstantArray[100, 3]; (* visual frame linear offset *)
+Qmindiag[[29;;31]] = ConstantArray[1, 3]; (* visual frame linear offset *)
 Qmindiag[[32;;35]] = ConstantArray[1, 4]; (* visual frame angular offset *)
 Qmindiag[[36;;36]] = ConstantArray[1, 1]; (* visual scale *)
 
@@ -92,8 +92,8 @@ makeMeasurementPrediction["gyro", w + bw];
 makeMeasurementPrediction["gnsspos", pwi];
 makeMeasurementPrediction["gnssvel", vwi];
 
-makeMeasurementPrediction["vispos", lambda rotateVectorByQuaternion[pwi + pvw, Conjugate[qvw]]];
-makeMeasurementPrediction["visatt", eulerFromQuaternion[qwi ** Conjugate[qvw]]];
+makeMeasurementPrediction["vispos", lambda (rotateVectorByQuaternion[pwi + pvw, qvw])];
+makeMeasurementPrediction["visatt", eulerFromQuaternion[qwi ** qvw]];
 
 makeMeasurementPrediction["climbrate", {vwi[[3]]}];
 

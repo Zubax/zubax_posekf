@@ -92,8 +92,8 @@ makeMeasurementPrediction["gyro", w + bw];
 makeMeasurementPrediction["gnsspos", pwi];
 makeMeasurementPrediction["gnssvel", vwi];
 
-makeMeasurementPrediction["vispos", rotateVectorByQuaternion[lambda(pwi + pvw), qvw]];
-makeMeasurementPrediction["visatt", eulerFromQuaternion[qwi ** qvw]];
+makeMeasurementPrediction["vispos", (pvw + rotateVectorByQuaternion[pwi, Conjugate@qvw]) lambda];
+makeMeasurementPrediction["visatt", eulerFromQuaternion[qwi ** Conjugate@qvw]];
 
 printMatrixByName /@ Names["H`*"];
 

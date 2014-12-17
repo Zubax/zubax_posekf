@@ -356,26 +356,9 @@ class Filter
 
         if (meas->pose_valid)
         {
-//            const Quaternion yq = meas->orientation * state.getStateVector().hvisatt().inverse();
-//            const Vector<4> yvec(yq.w(), yq.x(), yq.y(), yq.z());
-
-            const Vector<4> zvec(meas->orientation.w(),
-                                 meas->orientation.x(),
-                                 meas->orientation.y(),
-                                 meas->orientation.z());
-
-            const Quaternion xq = state.getStateVector().hvisatt();
-            const Vector<4> xvec(xq.w(),
-                                 xq.x(),
-                                 xq.y(),
-                                 xq.z());
-
-            const Vector<4> yvec = zvec - xvec;
-
-            const Matrix<4, 3> G = quaternionFromEulerJacobian(quaternionToEuler(meas->orientation));
-            const auto R = static_cast<Matrix4>(G * meas->position_orientation_cov.block<3, 3>(3, 3) * G.transpose());
-
-            state.performMeasurementUpdate(yvec, R, state.getStateVector().Hvisatt(), "visatt");
+            const Vector3 y = quaternionToEuler(meas->orientation) - state.getStateVector().hvisatt();
+            const Matrix3 R = meas->position_orientation_cov.block<3, 3>(3, 3);
+            state.performMeasurementUpdate(y, R, state.getStateVector().Hvisatt(), "visatt");
         }
     }
 

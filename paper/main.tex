@@ -14,6 +14,8 @@
 \usepackage[backend=biber, style=numeric]{biblatex}
 \usepackage{wrapfig}
 \usepackage{geometry}
+\usepackage{float}
+\usepackage{placeins}
 
 \geometry{
     a4paper,
@@ -338,22 +340,57 @@
 
 Исходные тексты описанных компонентов доступны под лицензией MIT по URL \url{https://github.com/Zubax/zubax_posekf}.
 
+\FloatBarrier
+
 \subsection{Результаты}
 
-Тестирование фильтра выполнялось с использованием пакетов тестовых данных CAMPUS-0L и CAMPUS-2L \cite{blanco2009cor}.
+Тестирование фильтра выполнялось с использованием пакетов тестовых данных CAMPUS-0L и CAMPUS-2L \cite{blanco2009cor}. Предварительные результаты тестирования прототипа реализации предложенного алгоритма приведены ниже. Легенда: синий - оценка фильтра; красный - измерения магнитного компаса (на графиках азимута) или измерения GPS с частотой 1 Гц (на прочих графиках).
+
+\FloatBarrier
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=\textwidth]{posekf_malaga.png}
-    \caption{Результаты тестирования прототипа реализации предложенного алгоритма. Слева-вверху: оценка позиции $x$/$y$ по пакету тестовых данных CAMPUS-0L; справа-вверху: оценка позиции $x$/$y$ по пакету тестовых данных CAMPUS-2L; слева-внизу: оценка азимута по пакету тестовых данных CAMPUS-0L; справа-внизу: оценка азимута по пакету тестовых данных CAMPUS-2L. Легенда: синий - оценка фильтра; красный - измерения GPS с частотой 1 Гц (верхние графики), измерения магнитного компаса (нижние графики).}
+    \includegraphics[width=0.8\textwidth]{malaga0_pos.png}
+    \caption{Оценка позиции $x$/$y$ по пакету тестовых данных CAMPUS-0L}
 \end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{malaga0_vel.png}
+    \caption{Оценка скорости $x$/$y$ по пакету тестовых данных CAMPUS-0L}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{malaga0_yaw.png}
+    \caption{Оценка азимута по пакету тестовых данных CAMPUS-0L}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{malaga2_pos.png}
+    \caption{Оценка позиции $x$/$y$ по пакету тестовых данных CAMPUS-2L}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{malaga2_vel.png}
+    \caption{Оценка скорости $x$/$y$ по пакету тестовых данных CAMPUS-2L}
+\end{figure}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{malaga2_yaw.png}
+    \caption{Оценка азимута по пакету тестовых данных CAMPUS-2L}
+\end{figure}
+
+\FloatBarrier
 
 \section{Заключение}
 
 Описанные в этой работе подходы являются работоспособными, хотя необходимы дальнейшие исследования и доработки. Наши дальнейшие шаги по части алгоритма оценки состояния МБПЛА включают в себя повышение стабильности и расширение вектора состояния параметрами $p_i^c$ $q_i^c$ $q_i^g$, что снизит требования к точности калибровки смещений сенсоров. Так же, в настоящий момент мы продолжаем исследования проблем автоматического пилотирования МБПЛА в сложных условиях без участия человека-оператора.
 
 \nocite{*}
-\newpage
 \begin{fullwidth}
 \printbibliography
 \end{fullwidth}
